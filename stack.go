@@ -8,16 +8,71 @@ import (
 	"strings"
 )
 
-// Frame represents a program counter inside a stack frame.
-type Frame uintptr
+// annotatedStack represents a stack of program counters and messages bound to functions
+type annotatedStack struct {
+	stack []uintptr
+	messages map[string]string
+}
+
+func (s annotatedStack) addMsg(pc uintptr, msg string) {
+	name := runtime.FuncForPC(pc).Name()
+	s.messages[name] = s.messages[name] + "\n" + msg
+}
+
+func (s annotatedStack) Format(st fmt.State, verb rune) {
+	var messagesCopy map[string]string
+	copy_map_msgs(s.messages, &messagesCopy)
+
+	switch verb {
+	case 'v':
+		for _, pc := range s.stack {
+			f := frame(pc)
+			fmt.Fprintf(st, "\n%+v", f)
+			name := runtime.FuncForPC(pc).Name()
+			if msgs, ok := messagesCopy[name]; ok {
+				fmt.Fprintf(st, "\nMESSAGES:")
+				fmt.Fprintf(st, msgs)
+				delete(messagesCopy, name)
+			}
+		}
+		if len(messagesCopy) != 0 {
+			fmt.Fprintf(st, "\n\nELSE MESSAGES:")
+		}
+		for funcname, msgs := range messagesCopy {
+			fmt.Fprintf(st, "\n%s:", funcname)
+			fmt.Fprintf(st, msgs)
+		}
+	}
+}
+
+func copy_map_msgs(src map[string]string, dst *map[string]string) {
+	if src != nil {
+		*dst = make(map[string]string, len(src))
+		for k, v := range src {
+			(*dst)[k] = v
+		}
+	}
+}
+
+// callers with skip==0 returns stack of program counters starting from caller of callers
+// with greater skip it skips more stack frames starting from upper level of invocations
+func callers(skip int) []uintptr {
+	const depth = 32
+	var pcs [depth]uintptr
+	n := runtime.Callers(2+skip, pcs[:])
+	return pcs[0:n]
+}
+
+// frame represents a program counter inside a stack frame.
+type frame uintptr
 
 // pc returns the program counter for this frame;
 // multiple frames may have the same PC value.
-func (f Frame) pc() uintptr { return uintptr(f) - 1 }
+func (f frame) pc() uintptr { return uintptr(f) - 1 }
 
 // file returns the full path to the file that contains the
-// function for this Frame's pc.
-func (f Frame) file() string {
+// function for this frame's pc.
+func (f frame) file() string {
 	fn := runtime.FuncForPC(f.pc())
 	if fn == nil {
 		return "unknown"
@@ -27,8 +82,8 @@ func (f Frame) file() string {
 }
 
 // line returns the line number of source code of the
-// function for this Frame's pc.
-func (f Frame) line() int {
+// function for this frame's pc.
+func (f frame) line() int {
 	fn := runtime.FuncForPC(f.pc())
 	if fn == nil {
 		return 0
@@ -49,7 +104,7 @@ func (f Frame) line() int {
 //    %+s   function name and path of source file relative to the compile time
 //          GOPATH separated by \n\t (<funcname>\n\t<path>)
 //    %+v   equivalent to %+s:%d
-func (f Frame) Format(s fmt.State, verb rune) {
+func (f frame) Format(s fmt.State, verb rune) {
 	switch verb {
 	case 's':
 		switch {
@@ -75,67 +130,6 @@ func (f Frame) Format(s fmt.State, verb rune) {
 		io.WriteString(s, ":")
 		f.Format(s, 'd')
 	}
-}
-
-// StackTrace is stack of Frames from innermost (newest) to outermost (oldest).
-type StackTrace []Frame
-
-// Format formats the stack of Frames according to the fmt.Formatter interface.
-//
-//    %s	lists source files for each Frame in the stack
-//    %v	lists the source file and line number for each Frame in the stack
-//
-// Format accepts flags that alter the printing of some verbs, as follows:
-//
-//    %+v   Prints filename, function, and line number for each Frame in the stack.
-func (st StackTrace) Format(s fmt.State, verb rune) {
-	switch verb {
-	case 'v':
-		switch {
-		case s.Flag('+'):
-			for _, f := range st {
-				fmt.Fprintf(s, "\n%+v", f)
-			}
-		case s.Flag('#'):
-			fmt.Fprintf(s, "%#v", []Frame(st))
-		default:
-			fmt.Fprintf(s, "%v", []Frame(st))
-		}
-	case 's':
-		fmt.Fprintf(s, "%s", []Frame(st))
-	}
-}
-
-// stack represents a stack of program counters.
-type stack []uintptr
-
-func (s *stack) Format(st fmt.State, verb rune) {
-	switch verb {
-	case 'v':
-		switch {
-		case st.Flag('+'):
-			for _, pc := range *s {
-				f := Frame(pc)
-				fmt.Fprintf(st, "\n%+v", f)
-			}
-		}
-	}
-}
-
-func (s *stack) StackTrace() StackTrace {
-	f := make([]Frame, len(*s))
-	for i := 0; i < len(f); i++ {
-		f[i] = Frame((*s)[i])
-	}
-	return f
-}
-
-func callers() *stack {
-	const depth = 32
-	var pcs [depth]uintptr
-	n := runtime.Callers(3, pcs[:])
-	var st stack = pcs[0:n]
-	return &st
 }
 
 // funcname removes the path prefix component of a function's name reported by func.Name().
