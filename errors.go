@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"errors"
 )
 
 // immutable type. none of functions changes it
@@ -14,7 +15,7 @@ type _error struct {
 }
 
 func New(message string, errcode ...interface{}) error {
-	return WrapWithMessage_skipstack(1, fmt.Errorf(message), "", errcode)
+	return WrapWithMessage_skipstack(1, errors.New(message), "", errcode)
 }
 
 func Errorf(format string, args ...interface{}) error {
@@ -40,7 +41,7 @@ func WrapWithMessage(err error, msg string, errcode ...interface{}) error {
 /* for wrappers of this package */
 
 func New_skipstack(message string, skip int, errcode ...interface{}) error {
-	return WrapWithMessage_skipstack(skip + 1, fmt.Errorf(message), "", errcode)
+	return WrapWithMessage_skipstack(skip + 1, errors.New(message), "", errcode)
 }
 
 func Errorf_skipstack(skip int, format string, args ...interface{}) error {
