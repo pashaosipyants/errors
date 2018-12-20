@@ -31,18 +31,12 @@ type Handleable interface {
 	Cause() error
 }
 
-// Handler recovers panic and provide an opportunity to handle them
-func Handler(handle func(err Handleable), handlePanic ...func(recovered interface{})) {
+// defer Handle and provide handler to process panics made by Check...()
+func Handler(handle func(err Handleable)) {
 	switch r := recover().(type) {
-	case nil:
-		return
 	case *_error:
 		handle(r)
 	default:
-		if len(handlePanic) > 0 {
-			handlePanic[0](r)
-		} else {
-			panic(r)
-		}
+		panic(r)
 	}
 }

@@ -2,27 +2,85 @@ package errors
 
 import (
 	"errors"
-	"fmt"
-	"testing"
 	"io"
 	"reflect"
+	"testing"
 )
 
 func TestNew(t *testing.T) {
 	tests := []struct {
-		err  string
-		want error
+		err      error
+		wantMsg  string
+		wantCode interface{}
 	}{
-		{"", fmt.Errorf("")},
-		{"foo", fmt.Errorf("foo")},
-		{"foo", New("foo")},
-		{"string with format specifiers: %v", errors.New("string with format specifiers: %v")},
+		{
+			New("msg"), "msg", nil,
+		},
+		{
+			New("msg with format specifiers %v %s"), "msg with format specifiers %v %s", nil,
+		},
+		{
+			New("msg and err code", 1), "msg and err code", 1,
+		},
+		{
+			New("msg and err codes variadic too many", 1, 2, 3),
+			"msg and err codes variadic too many", 1,
+		},
 	}
 
 	for _, tt := range tests {
-		got := New(tt.err)
-		if got.Error() != tt.want.Error() {
-			t.Errorf("New.Error(): got: %q, want %q", got, tt.want)
+		if tt.err.Error() != tt.wantMsg {
+			t.Errorf("New Error: got: %q, want %q", tt.err, tt.wantMsg)
+		}
+		if !reflect.DeepEqual(Cause(tt.err), errors.New(tt.wantMsg)) {
+			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), tt.wantMsg)
+		}
+		if ErrCode(tt.err) != tt.wantCode {
+			t.Errorf("New ErrCode: got: %q, want %q", ErrCode(tt.err), tt.wantCode)
+		}
+	}
+}
+
+func TestErrorf(t *testing.T) {
+	tests := []struct {
+		err  error
+		want string
+	}{
+		{Errorf("read error without format specifiers"), "read error without format specifiers"},
+		{Errorf("read error with %d format specifier", 1), "read error with 1 format specifier"},
+	}
+
+	for _, tt := range tests {
+		if tt.err.Error() != tt.want {
+			t.Errorf("New Error: got: %q, want %q", tt.err, tt.want)
+		}
+		if !reflect.DeepEqual(Cause(tt.err), errors.New(tt.want)) {
+			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), tt.want)
+		}
+		if ErrCode(tt.err) != nil {
+			t.Errorf("New ErrCode: got: %q, want %q", ErrCode(tt.err), nil)
+		}
+	}
+}
+
+func TestCodef(t *testing.T) {
+	tests := []struct {
+		err  error
+		want string
+	}{
+		{Codef(1, "read error without format specifiers"), "read error without format specifiers"},
+		{Codef(1, "read error with %d format specifier", 1), "read error with 1 format specifier"},
+	}
+
+	for _, tt := range tests {
+		if tt.err.Error() != tt.want {
+			t.Errorf("New Error: got: %q, want %q", tt.err, tt.want)
+		}
+		if !reflect.DeepEqual(Cause(tt.err), errors.New(tt.want)) {
+			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), tt.want)
+		}
+		if ErrCode(tt.err) != 1 {
+			t.Errorf("New ErrCode: got: %q, want %q", ErrCode(tt.err), 1)
 		}
 	}
 }
@@ -36,18 +94,28 @@ func TestWrapNil(t *testing.T) {
 
 func TestWrap(t *testing.T) {
 	tests := []struct {
-		err     error
-		message string
-		want    string
+		err      error
+		wantMsg  string
+		wantCode interface{}
 	}{
-		{io.EOF, "read error", "read error: EOF"},
-		{Wrap(io.EOF, "read error"), "client error", "client error: read error: EOF"},
+		{Wrap(io.EOF), "EOF", nil},
+		{Wrap(Wrap(io.EOF)), "EOF", nil},
+		{Wrap(io.EOF, 1), "EOF", 1},
+		{Wrap(io.EOF, 1, 2, 3), "EOF", 1},
+		{Wrap(Wrap(io.EOF, 1)), "EOF", 1},
+		{Wrap(Wrap(io.EOF), 1), "EOF", 1},
+		{Wrap(Wrap(io.EOF, 2), 1), "EOF", 1},
 	}
 
 	for _, tt := range tests {
-		got := Wrap(tt.err, tt.message).Error()
-		if got != tt.want {
-			t.Errorf("Wrap(%v, %q): got: %v, want %v", tt.err, tt.message, got, tt.want)
+		if tt.err.Error() != tt.wantMsg {
+			t.Errorf("New Error: got: %q, want %q", tt.err, tt.wantMsg)
+		}
+		if Cause(tt.err) != io.EOF {
+			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), io.EOF)
+		}
+		if ErrCode(tt.err) != tt.wantCode {
+			t.Errorf("New ErrCode: got: %q, want %q", ErrCode(tt.err), tt.wantCode)
 		}
 	}
 }
@@ -57,7 +125,6 @@ type nilError struct{}
 func (nilError) Error() string { return "nil error" }
 
 func TestCause(t *testing.T) {
-	x := New("error")
 	tests := []struct {
 		err  error
 		want error
@@ -78,24 +145,8 @@ func TestCause(t *testing.T) {
 		err:  io.EOF,
 		want: io.EOF,
 	}, {
-		// caused error returns cause
-		err:  Wrap(io.EOF, "ignored"),
-		want: io.EOF,
-	}, {
-		err:  x, // return from errors.New
-		want: x,
-	}, {
-		WithMessage(nil, "whoops"),
-		nil,
-	}, {
-		WithMessage(io.EOF, "whoops"),
-		io.EOF,
-	}, {
-		WithStack(nil),
-		nil,
-	}, {
-		WithStack(io.EOF),
-		io.EOF,
+		err:  errors.New("AAA"),
+		want: errors.New("AAA"),
 	}}
 
 	for i, tt := range tests {
@@ -106,130 +157,24 @@ func TestCause(t *testing.T) {
 	}
 }
 
-func TestWrapfNil(t *testing.T) {
-	got := Wrapf(nil, "no error")
-	if got != nil {
-		t.Errorf("Wrapf(nil, \"no error\"): got %#v, expected nil", got)
-	}
-}
-
-func TestWrapf(t *testing.T) {
-	tests := []struct {
-		err     error
-		message string
-		want    string
-	}{
-		{io.EOF, "read error", "read error: EOF"},
-		{Wrapf(io.EOF, "read error without format specifiers"), "client error", "client error: read error without format specifiers: EOF"},
-		{Wrapf(io.EOF, "read error with %d format specifier", 1), "client error", "client error: read error with 1 format specifier: EOF"},
-	}
-
-	for _, tt := range tests {
-		got := Wrapf(tt.err, tt.message).Error()
-		if got != tt.want {
-			t.Errorf("Wrapf(%v, %q): got: %v, want %v", tt.err, tt.message, got, tt.want)
-		}
-	}
-}
-
-func TestErrorf(t *testing.T) {
+func TestErrCode(t *testing.T) {
 	tests := []struct {
 		err  error
-		want string
-	}{
-		{Errorf("read error without format specifiers"), "read error without format specifiers"},
-		{Errorf("read error with %d format specifier", 1), "read error with 1 format specifier"},
-	}
+		wantCode interface{}
+	}{{
+		err:  nil,
+		wantCode: nil,
+	}, {
+		err:  (error)(nil),
+		wantCode: nil,
+	}, {
+		err:  &_error{errcode: "code"},
+		wantCode: "code",
+	}}
 
-	for _, tt := range tests {
-		got := tt.err.Error()
-		if got != tt.want {
-			t.Errorf("Errorf(%v): got: %q, want %q", tt.err, got, tt.want)
+	for i, tt := range tests {
+		if ErrCode(tt.err) != tt.wantCode {
+			t.Errorf("test %d: got %#v, want %#v", i+1, ErrCode(tt.err), tt.wantCode)
 		}
 	}
-}
-
-func TestWithStackNil(t *testing.T) {
-	got := WithStack(nil)
-	if got != nil {
-		t.Errorf("WithStack(nil): got %#v, expected nil", got)
-	}
-}
-
-func TestWithStack(t *testing.T) {
-	tests := []struct {
-		err  error
-		want string
-	}{
-		{io.EOF, "EOF"},
-		{WithStack(io.EOF), "EOF"},
-	}
-
-	for _, tt := range tests {
-		got := WithStack(tt.err).Error()
-		if got != tt.want {
-			t.Errorf("WithStack(%v): got: %v, want %v", tt.err, got, tt.want)
-		}
-	}
-}
-
-func TestWithMessageNil(t *testing.T) {
-	got := WithMessage(nil, "no error")
-	if got != nil {
-		t.Errorf("WithMessage(nil, \"no error\"): got %#v, expected nil", got)
-	}
-}
-
-func TestWithMessage(t *testing.T) {
-	tests := []struct {
-		err     error
-		message string
-		want    string
-	}{
-		{io.EOF, "read error", "read error: EOF"},
-		{WithMessage(io.EOF, "read error"), "client error", "client error: read error: EOF"},
-	}
-
-	for _, tt := range tests {
-		got := WithMessage(tt.err, tt.message).Error()
-		if got != tt.want {
-			t.Errorf("WithMessage(%v, %q): got: %q, want %q", tt.err, tt.message, got, tt.want)
-		}
-	}
-}
-
-// errors.New, etc values are not expected to be compared by value
-// but the change in errors#27 made them incomparable. Assert that
-// various kinds of errors have a functional equality operator, even
-// if the result of that equality is always false.
-func TestErrorEquality(t *testing.T) {
-	vals := []error{
-		nil,
-		io.EOF,
-		errors.New("EOF"),
-		New("EOF"),
-		Errorf("EOF"),
-		Wrap(io.EOF, "EOF"),
-		Wrapf(io.EOF, "EOF%d", 2),
-		WithMessage(nil, "whoops"),
-		WithMessage(io.EOF, "whoops"),
-		WithStack(io.EOF),
-		WithStack(nil),
-	}
-
-	for i := range vals {
-		for j := range vals {
-			_ = vals[i] == vals[j] // mustn't panic
-		}
-	}
-}
-
-func TestErrorAAA(t *testing.T) {
-	defer Handler(func(err Handleable) {
-		fmt.Println(err)
-	})
-
-	err := func() error { return WithMessage(New("AAA", "errcode"), "first") }()
-	err = WithMessage(err, "second")
-	Check(err, "changed_errcode")
 }

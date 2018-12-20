@@ -1,10 +1,10 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
-	"errors"
 )
 
 // immutable type. none of functions changes it
@@ -49,38 +49,40 @@ func WrapAnnotated(err error, annotation string, errcode ...interface{}) error {
 // wrapper objects
 
 func New_skipstack(message string, skip int, errcode ...interface{}) error {
-	return WrapAnnotated_skipstack(skip + 1, errors.New(message), "", errcode...)
+	return WrapAnnotated_skipstack(skip+1, errors.New(message), "", errcode...)
 }
 
 func Errorf_skipstack(skip int, format string, args ...interface{}) error {
-	return WrapAnnotated_skipstack(skip + 1, fmt.Errorf(format, args...), "")
+	return WrapAnnotated_skipstack(skip+1, fmt.Errorf(format, args...), "")
 }
 
 func Codef_skipstack(skip int, errcode interface{}, format string, args ...interface{}) error {
-	return WrapAnnotated_skipstack(skip + 1, fmt.Errorf(format, args...), "", errcode)
+	return WrapAnnotated_skipstack(skip+1, fmt.Errorf(format, args...), "", errcode)
 }
 
 func Wrap_skipstack(skip int, err error, errcode ...interface{}) error {
-	return WrapAnnotated_skipstack(skip + 1, err, "", errcode...)
+	return WrapAnnotated_skipstack(skip+1, err, "", errcode...)
 }
 
 func WrapAnnotated_skipstack(skip int, err error, annotation string, errcode ...interface{}) error {
-	if err == nil { return nil }
+	if err == nil {
+		return nil
+	}
 
 	reterr := new(_error)
 	switch err1, ok := err.(*_error); {
-		default:
-			panic("assertion failed - it should be unreachable!!!")
-		case ok && len(errcode) == 0 && annotation == "":
-			return err
-		case ok:
-			reterr.error = err1.error
-			reterr.errcode = err1.errcode
-			reterr.stack = err1.stack
-			copy_map_annots(err1.annotations, &reterr.annotations)
-		case !ok:
-			reterr.error = err
-			reterr.stack = callers(skip + 1)
+	default:
+		panic("assertion failed - it should be unreachable!!!")
+	case ok && len(errcode) == 0 && annotation == "":
+		return err
+	case ok:
+		reterr.error = err1.error
+		reterr.errcode = err1.errcode
+		reterr.stack = err1.stack
+		copy_map_annots(err1.annotations, &reterr.annotations)
+	case !ok:
+		reterr.error = err
+		reterr.stack = callers(skip + 1)
 	}
 
 	if len(errcode) > 0 {
@@ -88,7 +90,9 @@ func WrapAnnotated_skipstack(skip int, err error, annotation string, errcode ...
 	}
 
 	if annotation != "" {
-		if reterr.annotations == nil { reterr.annotations = make(map[string]string) }
+		if reterr.annotations == nil {
+			reterr.annotations = make(map[string]string)
+		}
 		pc, _, _, _ := runtime.Caller(skip + 1)
 		reterr.addAnnotation(pc, annotation)
 	}
