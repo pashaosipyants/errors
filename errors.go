@@ -14,66 +14,70 @@ type _error struct {
 	errcode interface{}
 }
 
+// returns error with error code, if specified
+// errcode is optional param. first of variadic parameters is used, else are ignored
 func New(message string, errcode ...interface{}) error {
-	return WrapWithMessage_skipstack(1, errors.New(message), "", errcode)
+	return WrapAnnotated_skipstack(1, errors.New(message), "", errcode...)
 }
 
+// returns error with formatted message and without error code
 func Errorf(format string, args ...interface{}) error {
-	return WrapWithMessage_skipstack(1, fmt.Errorf(format, args...), "")
+	return WrapAnnotated_skipstack(1, fmt.Errorf(format, args...), "")
 }
 
-func ErrorfWithCode(errcode interface{}, format string, args ...interface{}) error {
-	return WrapWithMessage_skipstack(1, fmt.Errorf(format, args...), "", errcode)
+// returns error with formatted message and specified error code
+func Codef(errcode interface{}, format string, args ...interface{}) error {
+	return WrapAnnotated_skipstack(1, fmt.Errorf(format, args...), "", errcode)
 }
 
+// returns error with underlying err and error code, if specified
+// if err already has error code and errcode is specified it is overridden
+// errcode is optional param. first of variadic parameters is used, else are ignored
 func Wrap(err error, errcode ...interface{}) error {
-	return WrapWithMessage_skipstack(1, err, "", errcode)
+	return WrapAnnotated_skipstack(1, err, "", errcode...)
 }
 
-func WithMessage(err error, msg string) error {
-	return WrapWithMessage_skipstack(1, err, msg)
-}
-
-func WrapWithMessage(err error, msg string, errcode ...interface{}) error {
-	return WrapWithMessage_skipstack(1, err, msg, errcode)
+// returns annotated error with underlying err and error code, if specified
+// if err already has error code and errcode is specified it is overridden
+// errcode is optional param. first of variadic parameters is used, else are ignored
+func WrapAnnotated(err error, annotation string, errcode ...interface{}) error {
+	return WrapAnnotated_skipstack(1, err, annotation, errcode...)
 }
 
 /* for wrappers of this package */
+// with this functions one can specify correct first stack frame to print in stack trace to skip stack frames of
+// wrapper objects
 
 func New_skipstack(message string, skip int, errcode ...interface{}) error {
-	return WrapWithMessage_skipstack(skip + 1, errors.New(message), "", errcode)
+	return WrapAnnotated_skipstack(skip + 1, errors.New(message), "", errcode...)
 }
 
 func Errorf_skipstack(skip int, format string, args ...interface{}) error {
-	return WrapWithMessage_skipstack(skip + 1, fmt.Errorf(format, args...), "")
+	return WrapAnnotated_skipstack(skip + 1, fmt.Errorf(format, args...), "")
 }
 
-func ErrorfWithCode_skipstack(skip int, errcode interface{}, format string, args ...interface{}) error {
-	return WrapWithMessage_skipstack(skip + 1, fmt.Errorf(format, args...), "", errcode)
+func Codef_skipstack(skip int, errcode interface{}, format string, args ...interface{}) error {
+	return WrapAnnotated_skipstack(skip + 1, fmt.Errorf(format, args...), "", errcode)
 }
 
 func Wrap_skipstack(skip int, err error, errcode ...interface{}) error {
-	return WrapWithMessage_skipstack(skip + 1, err, "", errcode)
+	return WrapAnnotated_skipstack(skip + 1, err, "", errcode...)
 }
 
-func WithMessage_skipstack(skip int, err error, msg string) error {
-	return WrapWithMessage_skipstack(skip + 1, err, msg)
-}
-
-func WrapWithMessage_skipstack(skip int, err error, msg string, errcode ...interface{}) error {
+func WrapAnnotated_skipstack(skip int, err error, annotation string, errcode ...interface{}) error {
 	if err == nil { return nil }
 
 	reterr := new(_error)
 	switch err1, ok := err.(*_error); {
 		default:
 			panic("assertion failed - it should be unreachable!!!")
-		case ok && len(errcode) == 0 && msg == "":
+		case ok && len(errcode) == 0 && annotation == "":
 			return err
 		case ok:
 			reterr.error = err1.error
 			reterr.errcode = err1.errcode
 			reterr.stack = err1.stack
-			copy_map_msgs(err1.messages, &reterr.messages)
+			copy_map_annots(err1.annotations, &reterr.annotations)
 		case !ok:
 			reterr.error = err
 			reterr.stack = callers(skip + 1)
@@ -83,10 +87,10 @@ func WrapWithMessage_skipstack(skip int, err error, msg string, errcode ...inter
 		reterr.errcode = errcode[0]
 	}
 
-	if msg != "" {
-		if reterr.messages == nil { reterr.messages = make(map[string]string) }
+	if annotation != "" {
+		if reterr.annotations == nil { reterr.annotations = make(map[string]string) }
 		pc, _, _, _ := runtime.Caller(skip + 1)
-		reterr.addMsg(pc, msg)
+		reterr.addAnnotation(pc, annotation)
 	}
 	return reterr
 }
@@ -112,29 +116,21 @@ func (w *_error) ErrCode() interface{} { return w.errcode }
 /* getters */
 
 // if it is possible, gets errcode of error.
-// otherwise returns empty string("")
-func ErrCode(err error) string {
-	type errcoder interface {
-		ErrCode() string
-	}
-
-	if err, ok := err.(errcoder); ok {
+// otherwise returns nil
+func ErrCode(err error) interface{} {
+	if err, ok := err.(*_error); ok {
 		return err.ErrCode()
 	}
-	return ""
+	return nil
 }
 
 // if it is possible, gets underlying error wrapped with this package's error type
 // otherwise returns err itself
 func Cause(err error) error {
-	type causer interface {
-		Cause() error
-	}
-
-	if err, ok := err.(causer); ok {
+	if err, ok := err.(*_error); ok {
 		return err.Cause()
 	}
 	return err
 }
 
-var _ Handleable = new(_error)
+var _ Handleable = (*_error)(nil)

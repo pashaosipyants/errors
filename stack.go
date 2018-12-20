@@ -8,20 +8,20 @@ import (
 	"strings"
 )
 
-// annotatedStack represents a stack of program counters and messages bound to functions
+// annotatedStack represents a stack of program counters and annotations bounded to functions
 type annotatedStack struct {
-	stack []uintptr
-	messages map[string]string
+	stack       []uintptr
+	annotations map[string]string
 }
 
-func (s annotatedStack) addMsg(pc uintptr, msg string) {
+func (s annotatedStack) addAnnotation(pc uintptr, annot string) {
 	name := runtime.FuncForPC(pc).Name()
-	s.messages[name] = s.messages[name] + "\n" + msg
+	s.annotations[name] = s.annotations[name] + "\n" + annot
 }
 
 func (s annotatedStack) Format(st fmt.State, verb rune) {
-	var messagesCopy map[string]string
-	copy_map_msgs(s.messages, &messagesCopy)
+	var annotationsCopy map[string]string
+	copy_map_annots(s.annotations, &annotationsCopy)
 
 	switch verb {
 	case 'v':
@@ -29,23 +29,23 @@ func (s annotatedStack) Format(st fmt.State, verb rune) {
 			f := frame(pc)
 			fmt.Fprintf(st, "\n%+v", f)
 			name := runtime.FuncForPC(pc).Name()
-			if msgs, ok := messagesCopy[name]; ok {
-				fmt.Fprintf(st, "\nMESSAGES:")
+			if msgs, ok := annotationsCopy[name]; ok {
+				fmt.Fprintf(st, "\nANNOTATIONS:")
 				fmt.Fprintf(st, msgs)
-				delete(messagesCopy, name)
+				delete(annotationsCopy, name)
 			}
 		}
-		if len(messagesCopy) != 0 {
-			fmt.Fprintf(st, "\n\nELSE MESSAGES:")
+		if len(annotationsCopy) != 0 {
+			fmt.Fprintf(st, "\n\nELSE ANNOTATIONS:")
 		}
-		for funcname, msgs := range messagesCopy {
+		for funcname, msgs := range annotationsCopy {
 			fmt.Fprintf(st, "\n%s:", funcname)
 			fmt.Fprintf(st, msgs)
 		}
 	}
 }
 
-func copy_map_msgs(src map[string]string, dst *map[string]string) {
+func copy_map_annots(src map[string]string, dst *map[string]string) {
 	if src != nil {
 		*dst = make(map[string]string, len(src))
 		for k, v := range src {
