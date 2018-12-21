@@ -15,7 +15,8 @@ func TestCheck(t *testing.T) {
 				}
 			})
 
-			Check(New("AAA", 100), i)
+			Check(nil)
+			Check(New("AAA", 100), i) // check if errcode is override
 			t.Error("can't execute this code")
 		}()
 	}
@@ -38,7 +39,8 @@ func TestCheckIf(t *testing.T) {
 				}
 			})
 
-			CheckIf(twoPlusTwo() != 4, New("twoPlusTwo is wrong", 100), i)
+			CheckIf(false, nil)
+			CheckIf(twoPlusTwo() != 4, New("twoPlusTwo is wrong", i))
 			t.Error("can't execute this code")
 		}()
 	}
@@ -57,6 +59,7 @@ func TestCheckIfNew(t *testing.T) {
 				}
 			})
 
+			CheckIfNew(false, "AAA")
 			CheckIfNew(twoPlusTwo() != 4, "twoPlusTwo is wrong", i)
 			t.Error("can't execute this code")
 		}()
