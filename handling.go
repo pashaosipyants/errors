@@ -4,7 +4,7 @@ package errors
 // one can handle this panic defering Handler func
 func Check(err error, errcode ...interface{}) {
 	if err != nil {
-		panic(Wrap(err, errcode))
+		panic(Wrap(err, errcode...))
 	}
 }
 
@@ -12,7 +12,7 @@ func Check(err error, errcode ...interface{}) {
 // one can handle this panic defering Handler func
 func CheckIf(ifErr bool, err error, errcode ...interface{}) {
 	if ifErr {
-		panic(Wrap(err, errcode))
+		panic(Wrap(err, errcode...))
 	}
 }
 
@@ -20,7 +20,7 @@ func CheckIf(ifErr bool, err error, errcode ...interface{}) {
 // one can handle this panic defering Handler func
 func CheckIfNew(ifErr bool, message string, errcode ...interface{}) {
 	if ifErr {
-		panic(New(message, errcode))
+		panic(New(message, errcode...))
 	}
 }
 
@@ -34,6 +34,8 @@ type Handleable interface {
 // defer Handle and provide handler to process panics made by Check...()
 func Handler(handle func(err Handleable)) {
 	switch r := recover().(type) {
+	case nil:
+		return
 	case *_error:
 		handle(r)
 	default:
