@@ -4,7 +4,7 @@ Package errors provides detailed stack-traced description for error type and exc
 This package has two goals.
 
 1. Provide convenient error type which has error code to easily distinguish errors,
-can be extended by additional messages(annotations here) while error flows through the program,
+which can be extended by additional messages(annotations here) while error flows through the program,
 can be printed with stack trace.
 
 2. Provide convenient way to handle errors in exception style.
@@ -72,20 +72,90 @@ When one wraps error without providing error code, it is preserved. Otherwise - 
 
 Annotations
 
-
+With WrapAnnotated one can add additional messages to an error. Annotations are printed in stacktrace, bound
+to corresponding function(where it was added).
+If annotation was added out of functions in stacktrace, it will be printed in separate section.
 
 Format
 
+%v modifier will print full info, with stack trace and annotations.
+%s only error message.
+%q only error message quoted.
 
+E.g. with %v:
+
+    ERROR: connection failed
+    ERR CODE: connection_failed
+
+    github.com/pashaosipyants/errors/example_auxiliary.SaveTaskToDbMockConnectionError
+    	D:/work/go/src/github.com/pashaosipyants/errors/example_auxiliary/example_auxiliary.go:19
+    github.com/pashaosipyants/errors/example_auxiliary.CreateTaskInitedByUser1
+    	D:/work/go/src/github.com/pashaosipyants/errors/example_auxiliary/example_auxiliary.go:63
+    ANNOTATIONS:
+    Inited by user 1
+    github.com/pashaosipyants/errors_test.apiCreateTask
+    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:69
+    github.com/pashaosipyants/errors_test.Example.func1
+    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:40
+    github.com/pashaosipyants/errors_test.Example
+    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:44
+    testing.runExample
+    	C:/Go/src/testing/example.go:121
+    testing.runExamples
+    	C:/Go/src/testing/example.go:45
+    testing.(*M).Run
+    	C:/Go/src/testing/testing.go:1035
+    main.main
+    	_testmain.go:70
+    runtime.main
+    	C:/Go/src/runtime/proc.go:201
+    runtime.goexit
+    	C:/Go/src/runtime/asm_amd64.s:1333
+
+Cause
+
+To get underlying error use Cause func.
+
+    err := errors.Wrap(io.EOF)
+    if reflect.DeepEqual(err, io.EOF) {
+      fmt.Println("Hooray, it works!")
+    }
 
 Skipstack management
-// with these functions one can specify correct first stack frame to print in stack trace to skip stack frames of
-// wrapper objects
-skip==0 это что
+
+All creation & wrapping functions have their duplicates with _skipstack suffix and skip argument.
+With those functions one can specify correct first stack frame to print in stack trace.
+skip==0 means starting from caller of this function.
+It can be useful for example to skip stack frames of wrapper object, if you want your own wrapper of this package.
+
+    type MyErr struct {
+      error
+      X AddInfo
+    }
+
+    func NewMyErr(message string, errcode ...interface{}, x AddInfo) MyErr {
+      return MyErr{New_skipstack(message, 1, errcode...), x}
+    }
+
 
 Handle-Check mechanism
 
-not thread safe
+    defer errors.Handler(func(err errors.Handleable) {
+      log.Error(err)
+      switch errors.ErrCode(err) {
+        case 1:
+          repairError1()
+        case 2:
+          repairError2()
+        default:
+          panic("Unknown err code")
+      }
+    })
 
+    err := task1()
+    errors.Check(err, 1)
+
+    x := twoPlusTwo()
+    errors.Check(x == 4, 2)
 */
 package errors

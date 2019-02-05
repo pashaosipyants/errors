@@ -145,8 +145,11 @@ func TestCause(t *testing.T) {
 		err:  io.EOF,
 		want: io.EOF,
 	}, {
-		err:  errors.New("AAA"),
+		err:  New("AAA"),
 		want: errors.New("AAA"),
+	}, {
+		err:  Wrap(io.EOF),
+		want: io.EOF,
 	}}
 
 	for i, tt := range tests {
