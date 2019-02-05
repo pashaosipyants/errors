@@ -1,3 +1,7 @@
+## Docs
+
+See https://godoc.org/github.com/pashaosipyants/errors
+
 ## License
 
 BSD-2-Clause, see `LICENSE` file.
