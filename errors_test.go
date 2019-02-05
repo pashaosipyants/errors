@@ -152,7 +152,7 @@ func TestCause(t *testing.T) {
 	for i, tt := range tests {
 		got := Cause(tt.err)
 		if !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("test %d: got %v, want %v", i+1, got, tt.want)
+			t.Errorf("example_auxiliary %d: got %v, want %v", i+1, got, tt.want)
 		}
 	}
 }
@@ -174,7 +174,7 @@ func TestErrCode(t *testing.T) {
 
 	for i, tt := range tests {
 		if ErrCode(tt.err) != tt.wantCode {
-			t.Errorf("test %d: got %v, want %v", i+1, ErrCode(tt.err), tt.wantCode)
+			t.Errorf("example_auxiliary %d: got %v, want %v", i+1, ErrCode(tt.err), tt.wantCode)
 		}
 	}
 }

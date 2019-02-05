@@ -12,7 +12,8 @@ type annotatedStack struct {
 	annotations map[string]string
 }
 
-func (s annotatedStack) addAnnotation(pc uintptr, annot string) {
+func (s annotatedStack) addAnnotation(skip int, annot string) {
+	pc, _, _, _ := runtime.Caller(skip + 1)
 	name := runtime.FuncForPC(pc).Name()
 	s.annotations[name] = s.annotations[name] + "\n" + annot
 }
