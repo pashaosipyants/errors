@@ -7,7 +7,7 @@ import (
 )
 
 // imagine there is an api to create a task that execute another service
-func ExamplePackage() {
+func Example() {
 	for i := 0; i < 4; i++ {
 		func() {
 			defer errors.Handler(func(err errors.Handleable) {
