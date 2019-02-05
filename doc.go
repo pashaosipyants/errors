@@ -138,7 +138,9 @@ It can be useful for example to skip stack frames of wrapper object, if you want
     }
 
 
-Handle-check mechanism
+Handle check mechanism
+
+example:
 
     defer errors.Handler(func(err errors.Handleable) {
       log.Error(err)
