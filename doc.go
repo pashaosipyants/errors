@@ -144,7 +144,7 @@ example:
 
     defer errors.Handler(func(err errors.Handleable) {
       log.Error(err)
-      switch errors.ErrCode(err) {
+      switch err.ErrCode() {
         case 1:
           repairError1()
         case 2:
