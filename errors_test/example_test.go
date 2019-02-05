@@ -1,4 +1,4 @@
-package error_test
+package errors_test
 
 import (
 	"github.com/pashaosipyants/errors/test"
