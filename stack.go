@@ -3,9 +3,7 @@ package errors
 import (
 	"fmt"
 	"io"
-	"path"
 	"runtime"
-	"strings"
 )
 
 // annotatedStack represents a stack of program counters and annotations bounded to functions
@@ -23,25 +21,22 @@ func (s annotatedStack) Format(st fmt.State, verb rune) {
 	var annotationsCopy map[string]string
 	copy_map_annots(s.annotations, &annotationsCopy)
 
-	switch verb {
-	case 'v':
-		for _, pc := range s.stack {
-			f := frame(pc)
-			fmt.Fprintf(st, "\n%+v", f)
-			name := runtime.FuncForPC(pc).Name()
-			if msgs, ok := annotationsCopy[name]; ok {
-				fmt.Fprintf(st, "\nANNOTATIONS:")
-				fmt.Fprintf(st, msgs)
-				delete(annotationsCopy, name)
-			}
+	for _, pc := range s.stack {
+		f := frame(pc)
+		fmt.Fprint(st, "\n", f)
+		name := runtime.FuncForPC(f.pc()).Name()
+		if msgs, ok := annotationsCopy[name]; ok {
+			fmt.Fprint(st, "\nANNOTATIONS:")
+			fmt.Fprint(st, msgs)
+			delete(annotationsCopy, name)
 		}
-		if len(annotationsCopy) != 0 {
-			fmt.Fprintf(st, "\n\nELSE ANNOTATIONS:")
-		}
-		for funcname, msgs := range annotationsCopy {
-			fmt.Fprintf(st, "\n%s:", funcname)
-			fmt.Fprintf(st, msgs)
-		}
+	}
+	if len(annotationsCopy) != 0 {
+		fmt.Fprint(st, "\n\nELSE ANNOTATIONS:")
+	}
+	for funcname, msgs := range annotationsCopy {
+		fmt.Fprintf(st, "\n%s:", funcname)
+		fmt.Fprint(st, msgs)
 	}
 }
 
@@ -64,78 +59,19 @@ func callers(skip int) []uintptr {
 }
 
 // frame represents a program counter inside a stack frame.
+// For historical reasons if Frame is interpreted as a uintptr
+// its value represents the program counter + 1.
 type frame uintptr
 
-// pc returns the program counter for this frame;
-// multiple frames may have the same PC value.
 func (f frame) pc() uintptr { return uintptr(f) - 1 }
 
-// file returns the full path to the file that contains the
-// function for this frame's pc.
-func (f frame) file() string {
-	fn := runtime.FuncForPC(f.pc())
-	if fn == nil {
-		return "unknown"
-	}
-	file, _ := fn.FileLine(f.pc())
-	return file
-}
-
-// line returns the line number of source code of the
-// function for this frame's pc.
-func (f frame) line() int {
-	fn := runtime.FuncForPC(f.pc())
-	if fn == nil {
-		return 0
-	}
-	_, line := fn.FileLine(f.pc())
-	return line
-}
-
-// Format formats the frame according to the fmt.Formatter interface.
-//
-//    %s    source file
-//    %d    source line
-//    %n    function name
-//    %v    equivalent to %s:%d
-//
-// Format accepts flags that alter the printing of some verbs, as follows:
-//
-//    %+s   function name and path of source file relative to the compile time
-//          GOPATH separated by \n\t (<funcname>\n\t<path>)
-//    %+v   equivalent to %+s:%d
 func (f frame) Format(s fmt.State, verb rune) {
-	switch verb {
-	case 's':
-		switch {
-		case s.Flag('+'):
-			pc := f.pc()
-			fn := runtime.FuncForPC(pc)
-			if fn == nil {
-				io.WriteString(s, "unknown")
-			} else {
-				file, _ := fn.FileLine(pc)
-				fmt.Fprintf(s, "%s\n\t%s", fn.Name(), file)
-			}
-		default:
-			io.WriteString(s, path.Base(f.file()))
-		}
-	case 'd':
-		fmt.Fprintf(s, "%d", f.line())
-	case 'n':
-		name := runtime.FuncForPC(f.pc()).Name()
-		io.WriteString(s, funcname(name))
-	case 'v':
-		f.Format(s, 's')
-		io.WriteString(s, ":")
-		f.Format(s, 'd')
+	pc := f.pc()
+	fn := runtime.FuncForPC(pc)
+	if fn == nil {
+		io.WriteString(s, "unknown")
+	} else {
+		file, line := fn.FileLine(pc)
+		fmt.Fprintf(s, "%s\n\t%s:%d", fn.Name(), file, line)
 	}
-}
-
-// funcname removes the path prefix component of a function's name reported by func.Name().
-func funcname(name string) string {
-	i := strings.LastIndex(name, "/")
-	name = name[i+1:]
-	i = strings.Index(name, ".")
-	return name[i+1:]
 }

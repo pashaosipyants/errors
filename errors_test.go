@@ -36,7 +36,7 @@ func TestNew(t *testing.T) {
 			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), tt.wantMsg)
 		}
 		if ErrCode(tt.err) != tt.wantCode {
-			t.Errorf("New ErrCode: got: %q, want %q", ErrCode(tt.err), tt.wantCode)
+			t.Errorf("New ErrCode: got: %v, want %v", ErrCode(tt.err), tt.wantCode)
 		}
 	}
 }
@@ -58,7 +58,7 @@ func TestErrorf(t *testing.T) {
 			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), tt.want)
 		}
 		if ErrCode(tt.err) != nil {
-			t.Errorf("New ErrCode: got: %q, want %q", ErrCode(tt.err), nil)
+			t.Errorf("New ErrCode: got: %v, want %v", ErrCode(tt.err), nil)
 		}
 	}
 }
@@ -80,7 +80,7 @@ func TestCodef(t *testing.T) {
 			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), tt.want)
 		}
 		if ErrCode(tt.err) != 1 {
-			t.Errorf("New ErrCode: got: %q, want %q", ErrCode(tt.err), 1)
+			t.Errorf("New ErrCode: got: %v, want %v", ErrCode(tt.err), 1)
 		}
 	}
 }
@@ -88,7 +88,7 @@ func TestCodef(t *testing.T) {
 func TestWrapNil(t *testing.T) {
 	got := Wrap(nil, "no error")
 	if got != nil {
-		t.Errorf("Wrap(nil, \"no error\"): got %#v, expected nil", got)
+		t.Errorf("Wrap(nil, \"no error\"): got %v, expected nil", got)
 	}
 }
 
@@ -115,7 +115,7 @@ func TestWrap(t *testing.T) {
 			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), io.EOF)
 		}
 		if ErrCode(tt.err) != tt.wantCode {
-			t.Errorf("New ErrCode: got: %q, want %q", ErrCode(tt.err), tt.wantCode)
+			t.Errorf("New ErrCode: got: %v, want %v", ErrCode(tt.err), tt.wantCode)
 		}
 	}
 }
@@ -152,7 +152,7 @@ func TestCause(t *testing.T) {
 	for i, tt := range tests {
 		got := Cause(tt.err)
 		if !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("test %d: got %#v, want %#v", i+1, got, tt.want)
+			t.Errorf("test %d: got %v, want %v", i+1, got, tt.want)
 		}
 	}
 }
@@ -174,7 +174,7 @@ func TestErrCode(t *testing.T) {
 
 	for i, tt := range tests {
 		if ErrCode(tt.err) != tt.wantCode {
-			t.Errorf("test %d: got %#v, want %#v", i+1, ErrCode(tt.err), tt.wantCode)
+			t.Errorf("test %d: got %v, want %v", i+1, ErrCode(tt.err), tt.wantCode)
 		}
 	}
 }

@@ -31,21 +31,21 @@ func Codef(errcode interface{}, format string, args ...interface{}) error {
 }
 
 // returns error with underlying err and error code, if specified
-// if err already has error code and errcode is specified it is overridden
+// if err already has error code(it means it was created earlier by one of this package's functions) and errcode is specified, it is overridden
 // errcode is optional param. first of variadic parameters is used, else are ignored
 func Wrap(err error, errcode ...interface{}) error {
 	return WrapAnnotated_skipstack(1, err, "", errcode...)
 }
 
 // returns annotated error with underlying err and error code, if specified
-// if err already has error code and errcode is specified it is overridden
+// if err already has error code(it means it was created earlier by one of this package's functions) and errcode is specified, it is overridden
 // errcode is optional param. first of variadic parameters is used, else are ignored
 func WrapAnnotated(err error, annotation string, errcode ...interface{}) error {
 	return WrapAnnotated_skipstack(1, err, annotation, errcode...)
 }
 
 /* for wrappers of this package */
-// with this functions one can specify correct first stack frame to print in stack trace to skip stack frames of
+// with these functions one can specify correct first stack frame to print in stack trace to skip stack frames of
 // wrapper objects
 
 func New_skipstack(message string, skip int, errcode ...interface{}) error {
@@ -72,7 +72,7 @@ func WrapAnnotated_skipstack(skip int, err error, annotation string, errcode ...
 	reterr := new(_error)
 	switch err1, ok := err.(*_error); {
 	default:
-		panic("assertion failed - it should be unreachable!!!")
+		panic("assertion failed - it should be unreachable!!!\n Please, make an issue for developers of this package")
 	case ok && len(errcode) == 0 && annotation == "":
 		return err
 	case ok:
@@ -105,7 +105,7 @@ func (f *_error) Format(s fmt.State, verb rune) {
 	switch verb {
 	case 'v':
 		fmt.Fprintf(s, "ERROR: %s\nERR CODE: %v\n", f.Error(), f.errcode)
-		f.annotatedStack.Format(s, verb)
+		fmt.Fprint(s, f.annotatedStack)
 	case 's':
 		io.WriteString(s, f.Error())
 	case 'q':

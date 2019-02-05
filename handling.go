@@ -24,7 +24,7 @@ func CheckIfNew(ifErr bool, message string, errcode ...interface{}) {
 	}
 }
 
-// type to handle on Check...() produced panic
+// type to handle for Check...() produced panic
 type Handleable interface {
 	Error() string
 	ErrCode() interface{}
@@ -32,6 +32,7 @@ type Handleable interface {
 }
 
 // defer Handle and provide handler to process panics made by Check...()
+// panics with type different to this package's one are just forwarded
 func Handler(handle func(err Handleable)) {
 	switch r := recover().(type) {
 	case nil:

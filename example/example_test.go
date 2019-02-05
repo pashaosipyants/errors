@@ -1,4 +1,4 @@
-package example
+package error_test
 
 import (
 	"github.com/pashaosipyants/errors/test"
@@ -42,10 +42,10 @@ func apiCreateTask(i int) (reterr error) {
 	defer errors.Handler(func(err errors.Handleable) {
 		switch errors.ErrCode(err) {
 		case test.ErrCode_ConnectionFailed, test.ErrCode_TaskAlreadyExistButNotExecuted:
-			fmt.Println(err, "\n\n\n\n") // log
+			fmt.Print(err, "\n\n\n\n") // log
 			reterr = err
 		case test.ErrCode_TaskAlreadyExistAndExecuted:
-			fmt.Println(err, "\n\n\n\n") // log
+			fmt.Print(err, "\n\n\n\n") // log
 			// do some specific logic - e.g. mark task in db as executed
 			reterr = err
 		default:
