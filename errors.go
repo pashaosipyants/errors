@@ -31,6 +31,7 @@ func Codef(errcode interface{}, format string, args ...interface{}) error {
 }
 
 // Wrap returns error with underlying err and error code, if specified.
+// If err is nil returns nil.
 // If err already has error code(it means it was created earlier by one of this package's functions) and
 // errcode is specified, it is overridden.
 //
@@ -40,6 +41,7 @@ func Wrap(err error, errcode ...interface{}) error {
 }
 
 // WrapAnnotated returns annotated error with underlying err and error code, if specified.
+// If err is nil returns nil.
 // If err already has error code(it means it was created earlier by one of this package's functions) and
 // errcode is specified, it is overridden.
 // See https://godoc.org/github.com/pashaosipyants/errors/#hdr-Annotations to learn about annotations.
