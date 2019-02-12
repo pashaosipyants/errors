@@ -4,7 +4,7 @@ package errors
 // One can handle this panic defering Handler func.
 func Check(err error, errcode ...interface{}) {
 	if err != nil {
-		panic(Wrap(err, errcode...))
+		panic(Wrap_skipstack(1, err, errcode...))
 	}
 }
 
@@ -12,7 +12,7 @@ func Check(err error, errcode ...interface{}) {
 // One can handle this panic defering Handler func.
 func CheckIf(ifErr bool, err error, errcode ...interface{}) {
 	if ifErr {
-		panic(Wrap(err, errcode...))
+		panic(Wrap_skipstack(1, err, errcode...))
 	}
 }
 
@@ -21,7 +21,7 @@ func CheckIf(ifErr bool, err error, errcode ...interface{}) {
 // One can handle this panic defering Handler func.
 func CheckIfNew(ifErr bool, message string, errcode ...interface{}) {
 	if ifErr {
-		panic(New(message, errcode...))
+		panic(New_skipstack(message, 1, errcode...))
 	}
 }
 
