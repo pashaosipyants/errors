@@ -51,16 +51,20 @@ func WrapAnnotated(err error, annotation string, errcode ...interface{}) error {
 	return WrapAnnotated_skipstack(1, err, annotation, errcode...)
 }
 
-func Suppress(suppressed, newerr error) error {
-	if newerr == nil {
-		return nil
-	}
-
-	reterr := WrapAnnotated_skipstack(1, newerr, "").(*_error)
-	reterr.suppressed = suppressed
-	return reterr
+// Suppress returns error with underlying newerr, error code, if specified, and putting suppressed param as a
+// suppressed error of returned error.
+// Suppressed error is printed and can be obtained by Suppressed function of this package.
+// If newerr is nil returns nil.
+// If newerr already has error code(it means it was created earlier by one of this package's functions) and
+// errcode is specified, it is overridden.
+//
+// errcode is optional param. First of variadic parameters is used, else are ignored.
+func Suppress(suppressed, newerr error, errcode ...interface{}) error {
+	return Suppress_skipstack(1, suppressed, newerr, errcode...)
 }
 
+// ExtendCause applies extender to err and returns result.
+// But if err is already wrapped with this package's type, extender is applied to Cause(err).
 func ExtendCause(err error, extender func(error) error) error {
 	if err, ok := err.(*_error); ok {
 		reterr := new(_error)
@@ -134,12 +138,12 @@ func WrapAnnotated_skipstack(skip int, err error, annotation string, errcode ...
 }
 
 // see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
-func Suppress_skipstack(skip int, suppressed, newerr error) error {
+func Suppress_skipstack(skip int, suppressed, newerr error, errcode ...interface{}) error {
 	if newerr == nil {
 		return nil
 	}
 
-	reterr := WrapAnnotated_skipstack(skip, newerr, "").(*_error)
+	reterr := WrapAnnotated_skipstack(skip+1, newerr, "", errcode...).(*_error)
 	reterr.suppressed = suppressed
 	return reterr
 }
@@ -147,15 +151,31 @@ func Suppress_skipstack(skip int, suppressed, newerr error) error {
 /* methods */
 
 func (f *_error) Format(s fmt.State, verb rune) {
-	if ferr, ok := f.error.(fmt.Formatter); ok {
-		ferr.Format(s, verb)
-	} else {
-		fmt.Fprintf(s, "%"+string(verb), f.error)
+	printerr := func(err error) {
+		if ferr, ok := err.(fmt.Formatter); ok {
+			ferr.Format(s, verb)
+		} else {
+			fmt.Fprintf(s, "%"+string(verb), err)
+		}
+		fmt.Fprint(s, "\n")
 	}
+
+	// print error
+	fmt.Fprintln(s, "ERROR:")
+	printerr(f.error)
 	fmt.Fprint(s, "\n")
 
+	// print stack
 	if verb == 'v' {
+		fmt.Fprintln(s, "STACK:")
 		fmt.Fprint(s, f.annotatedStack)
+		fmt.Fprint(s, "\n")
+	}
+
+	// print suppressed
+	if f.suppressed != nil {
+		fmt.Fprintln(s, "SUPPRESSED:")
+		printerr(f.suppressed)
 		fmt.Fprint(s, "\n")
 	}
 }
@@ -163,6 +183,8 @@ func (f *_error) Format(s fmt.State, verb rune) {
 func (w *_error) Cause() error { return w.error }
 
 func (w *_error) ErrCode() interface{} { return w.errcode }
+
+func (w *_error) Suppressed() error { return w.suppressed }
 
 /* getters */
 
@@ -182,6 +204,15 @@ func Cause(err error) error {
 		return err.Cause()
 	}
 	return err
+}
+
+// If it is possible, gets suppressed error.
+// Otherwise returns nil.
+func Suppressed(err error) error {
+	if err, ok := err.(*_error); ok {
+		return err.Suppressed()
+	}
+	return nil
 }
 
 var _ Handleable = (*_error)(nil)

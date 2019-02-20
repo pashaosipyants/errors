@@ -30,6 +30,7 @@ type Handleable interface {
 	Error() string
 	ErrCode() interface{}
 	Cause() error
+	Suppressed() error
 }
 
 // defer Handle and provide handler to process panics made by Check...().

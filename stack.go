@@ -24,16 +24,16 @@ func (s annotatedStack) Format(st fmt.State, verb rune) {
 
 	for _, pc := range s.stack {
 		f := frame(pc)
-		fmt.Fprint(st, "\n", f)
+		fmt.Fprint(st, f, "\n")
 		name := runtime.FuncForPC(f.pc()).Name()
 		if msgs, ok := annotationsCopy[name]; ok {
-			fmt.Fprint(st, "\nANNOTATIONS:")
-			fmt.Fprint(st, msgs)
+			fmt.Fprint(st, "ANNOTATIONS:")
+			fmt.Fprint(st, msgs, "\n")
 			delete(annotationsCopy, name)
 		}
 	}
 	if len(annotationsCopy) != 0 {
-		fmt.Fprint(st, "\n\nELSE ANNOTATIONS:")
+		fmt.Fprint(st, "\nELSE ANNOTATIONS:")
 	}
 	for funcname, msgs := range annotationsCopy {
 		fmt.Fprintf(st, "\n%s:", funcname)

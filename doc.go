@@ -78,15 +78,24 @@ If annotation was added out of functions in stacktrace, it will be printed in se
 
 Format
 
-%v modifier will print full info, with stack trace and annotations.
-%s only error message.
-%q only error message quoted.
+Errors printout consists of 3 parts: ERROR, STACK, SUPPRESSED.
+ERROR part:
+
+Prints underlying error. Uses Format if underlying error implements fmt.Formatter.
+
+STACK part:
+
+Prints stack trace with annotations if modifier is %v.
+
+SUPPRESSED part:
+Prints suppressed error if it exists. Uses Format if it implements fmt.Formatter.
 
 E.g. with %v:
 
-    ERROR: connection failed
-    ERR CODE: connection_failed
+    ERROR:
+    connection failed
 
+    STACK:
     github.com/pashaosipyants/errors/example_auxiliary.SaveTaskToDbMockConnectionError
     	D:/work/go/src/github.com/pashaosipyants/errors/example_auxiliary/example_auxiliary.go:19
     github.com/pashaosipyants/errors/example_auxiliary.CreateTaskInitedByUser1
@@ -94,11 +103,11 @@ E.g. with %v:
     ANNOTATIONS:
     Inited by user 1
     github.com/pashaosipyants/errors_test.apiCreateTask
-    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:69
+    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:70
     github.com/pashaosipyants/errors_test.Example.func1
-    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:40
+    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:41
     github.com/pashaosipyants/errors_test.Example
-    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:44
+    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:45
     testing.runExample
     	C:/Go/src/testing/example.go:121
     testing.runExamples
@@ -158,6 +167,6 @@ example:
     errors.Check(err, 1)
 
     x := twoPlusTwo()
-    errors.CheckIfNew(x != 4, "twoPlusTwo is wrong")
+    errors.CheckIfNew(x != 4, "twoPlusTwo is wrong", 2)
 */
 package errors
