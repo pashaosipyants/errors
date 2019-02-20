@@ -10,6 +10,7 @@ type _error struct {
 	error
 	annotatedStack
 	errcode interface{}
+	suppressed error
 }
 
 // New returns error with error code, if specified.
@@ -61,6 +62,16 @@ func ExtendCause(err error, extender func(error) error) error {
 	} else {
 		return extender(err)
 	}
+}
+
+func Suppress(suppressed, newerr error) error {
+	if newerr == nil {
+		return nil
+	}
+
+	reterr := WrapAnnotated_skipstack(1, newerr, "").(*_error)
+	reterr.suppressed = suppressed
+	return reterr
 }
 
 /* for wrappers of this package */
