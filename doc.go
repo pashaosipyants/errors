@@ -117,7 +117,7 @@ Cause
 To get underlying error use Cause func.
 
     err := errors.Wrap(io.EOF)
-    if reflect.DeepEqual(err, io.EOF) {
+    if reflect.DeepEqual(errors.Cause(err), io.EOF) {
       fmt.Println("Hooray, it works!")
     }
 
@@ -158,6 +158,6 @@ example:
     errors.Check(err, 1)
 
     x := twoPlusTwo()
-    errors.Check(x == 4, 2)
+    errors.CheckIfNew(x != 4, "twoPlusTwo is wrong")
 */
 package errors
