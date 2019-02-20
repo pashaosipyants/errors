@@ -50,6 +50,19 @@ func WrapAnnotated(err error, annotation string, errcode ...interface{}) error {
 	return WrapAnnotated_skipstack(1, err, annotation, errcode...)
 }
 
+func ExtendCause(err error, extender func(error) error) error {
+	if err, ok := err.(*_error); ok {
+		reterr := new(_error)
+		reterr.errcode = err.errcode
+		copy_map_annots(err.annotations, &reterr.annotations)
+		reterr.error = extender(err.error)
+		return reterr
+
+	} else {
+		return extender(err)
+	}
+}
+
 /* for wrappers of this package */
 // with these functions one can specify correct first stack frame to print in stack trace to skip stack frames of
 // wrapper objects
