@@ -3,7 +3,6 @@ package errors
 import (
 	"errors"
 	"fmt"
-	"io"
 )
 
 // immutable type. none of functions changes it
@@ -113,14 +112,14 @@ func WrapAnnotated_skipstack(skip int, err error, annotation string, errcode ...
 /* methods */
 
 func (f *_error) Format(s fmt.State, verb rune) {
-	switch verb {
-	case 's':
-		io.WriteString(s, f.Error())
-	case 'q':
-		fmt.Fprintf(s, "%q", f.Error())
-	default:
+	if ferr, ok := f.error.(fmt.Formatter); ok {
+		ferr.Format(s, verb)
+	} else {
 		fmt.Fprintf(s, "%"+string(verb), f.error)
-		fmt.Fprint(s, "\n")
+	}
+	fmt.Fprint(s, "\n")
+
+	if verb == 'v' {
 		fmt.Fprint(s, f.annotatedStack)
 		fmt.Fprint(s, "\n")
 	}

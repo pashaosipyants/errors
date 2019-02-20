@@ -20,7 +20,7 @@ func Example() {
 	for i := 0; i < 4; i++ {
 		// func is smth like try block here
 		func() {
-			defer fmt.Printf("\nCase %d finished\n----------\n\n\n", i)
+			defer fmt.Printf("Case %d finished\n----------\n\n\n", i)
 			// smth like catch block
 			defer errors.Handler(func(err errors.Handleable) {
 				switch errors.ErrCode(err) {
