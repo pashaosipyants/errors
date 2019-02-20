@@ -51,6 +51,16 @@ func WrapAnnotated(err error, annotation string, errcode ...interface{}) error {
 	return WrapAnnotated_skipstack(1, err, annotation, errcode...)
 }
 
+func Suppress(suppressed, newerr error) error {
+	if newerr == nil {
+		return nil
+	}
+
+	reterr := WrapAnnotated_skipstack(1, newerr, "").(*_error)
+	reterr.suppressed = suppressed
+	return reterr
+}
+
 func ExtendCause(err error, extender func(error) error) error {
 	if err, ok := err.(*_error); ok {
 		reterr := new(_error)
@@ -62,16 +72,6 @@ func ExtendCause(err error, extender func(error) error) error {
 	} else {
 		return extender(err)
 	}
-}
-
-func Suppress(suppressed, newerr error) error {
-	if newerr == nil {
-		return nil
-	}
-
-	reterr := WrapAnnotated_skipstack(1, newerr, "").(*_error)
-	reterr.suppressed = suppressed
-	return reterr
 }
 
 /* for wrappers of this package */
@@ -130,6 +130,17 @@ func WrapAnnotated_skipstack(skip int, err error, annotation string, errcode ...
 		}
 		reterr.addAnnotation(skip + 1, annotation)
 	}
+	return reterr
+}
+
+// see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
+func Suppress_skipstack(skip int, suppressed, newerr error) error {
+	if newerr == nil {
+		return nil
+	}
+
+	reterr := WrapAnnotated_skipstack(skip, newerr, "").(*_error)
+	reterr.suppressed = suppressed
 	return reterr
 }
 
