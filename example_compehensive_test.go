@@ -11,7 +11,7 @@ import (
 // https://godoc.org/github.com/pashaosipyants/errors/example_auxiliary package,
 // which is used here.
 //
-// Imagine there is an api to create a task that executes another service.
+// Imagine there is an api to create a task that is executed by another service.
 // Besides user of this api wants to hold info whether this task is already done.
 // This api, ofc, can return error. E.g. certain task may be already created.
 // If so, error should report whether it is done or not.
@@ -20,7 +20,7 @@ func Example() {
 	for i := 0; i < 4; i++ {
 		// func is smth like try block here
 		func() {
-			defer fmt.Printf("Case %d finished\n----------\n\n\n", i)
+			defer fmt.Printf("Case %d finished\n-------------------------------------------\n\n\n", i)
 			// smth like catch block
 			defer errors.Handler(func(err errors.Handleable) {
 				switch errors.ErrCode(err) {
@@ -35,11 +35,11 @@ func Example() {
 				}
 			})
 
-			err := apiUserLogin()
-			errors.Check(err, errcode_apiuserloginfailed)
+			errors.Check(
+				apiUserLogin(), errcode_apiuserloginfailed)
 
-			err = apiCreateTask(i)
-			errors.Check(err, errcode_apicreatetaskfailed) // override errcode
+			errors.Check(
+				apiCreateTask(i), errcode_apicreatetaskfailed) // override errcode
 
 			fmt.Println("Success!!!") // log
 		}()
@@ -54,20 +54,25 @@ const errcode_apiuserloginfailed = "api_user_login_failed"
 
 func apiCreateTask(i int) (reterr error) {
 	defer errors.Handler(func(err errors.Handleable) {
-		switch errors.ErrCode(err) {
-		case example_auxiliary.ErrCode_ConnectionFailed, example_auxiliary.ErrCode_TaskAlreadyExistButNotDone:
-			fmt.Print(err, "\n") // log
+		// do some specific logic - e.g. mark task in db as done
+		if errors.ErrCode(err) == example_auxiliary.ErrCode_TaskAlreadyExistAndDone {
+			reterr = errors.AnyErr(
+				errors.Suppress(err,
+					markTaskAsDone(), example_auxiliary.ErrCode_TaskAlreadyExistAndDone),
+				err,
+			)
+		} else {
 			reterr = err
-		case example_auxiliary.ErrCode_TaskAlreadyExistAndDone:
-			fmt.Print(err, "\n") // log
-			// do some specific logic - e.g. mark task in db as done
-			reterr = err
-		default:
-			panic("Assertion failed")
 		}
+		// common logic
+		fmt.Print(reterr, "\n") // log
 	})
 
 	err := example_auxiliary.CreateTaskInitedByUser1(i)
+	err = errors.ExtendCause(
+		err,
+		func(e error) error { return WrapUserError(e, 1) },
+	)
 	errors.Check(err)
 
 	return nil
@@ -78,4 +83,36 @@ func apiUserLogin() error {
 	// some work
 
 	return nil
+}
+
+// pretends that there is an error an task can not be marked as done
+func markTaskAsDone() error {
+	return errors.New("task can not be marked as done")
+}
+
+func WrapUserError(err error, user int) error {
+	if err == nil {
+		return nil
+	}
+	return UserError{
+		user: user,
+		err: err,
+	}
+}
+
+type UserError struct {
+	user int
+	err error
+}
+
+func (x UserError) Error() string {
+	return x.err.Error()
+}
+
+func (x UserError) Format(f fmt.State, verb rune) {
+	if verb == 's' {
+		fmt.Fprint(f, x.err.Error())
+	} else {
+		fmt.Fprintf(f, "User: %d; Error: %v", x.user, x.err)
+	}
 }

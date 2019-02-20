@@ -66,11 +66,12 @@ func Suppress(suppressed, newerr error, errcode ...interface{}) error {
 // ExtendCause applies extender to err and returns result.
 // But if err is already wrapped with this package's type, extender is applied to Cause(err).
 func ExtendCause(err error, extender func(error) error) error {
-	if err, ok := err.(*_error); ok {
+	if err1, ok := err.(*_error); ok {
 		reterr := new(_error)
-		reterr.errcode = err.errcode
-		copy_map_annots(err.annotations, &reterr.annotations)
-		reterr.error = extender(err.error)
+		reterr.errcode = err1.errcode
+		reterr.stack = err1.stack
+		copy_map_annots(err1.annotations, &reterr.annotations)
+		reterr.error = extender(err1.error)
 		return reterr
 
 	} else {

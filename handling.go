@@ -45,3 +45,25 @@ func Handler(handle func(err Handleable)) {
 		panic(r)
 	}
 }
+
+/* for wrappers of this package */
+// with these functions one can specify correct first stack frame to print in stack trace to skip stack frames of
+// wrapper objects
+
+func Check_skipstack(skip int, err error, errcode ...interface{}) {
+	if err != nil {
+		panic(Wrap_skipstack(skip+1, err, errcode...))
+	}
+}
+
+func CheckIf_skipstack(skip int, ifErr bool, err error, errcode ...interface{}) {
+	if ifErr {
+		panic(Wrap_skipstack(skip+1, err, errcode...))
+	}
+}
+
+func CheckIfNew_skipstack(skip int, ifErr bool, message string, errcode ...interface{}) {
+	if ifErr {
+		panic(New_skipstack(message, skip+1, errcode...))
+	}
+}

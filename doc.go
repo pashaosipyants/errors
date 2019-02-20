@@ -88,6 +88,7 @@ STACK part:
 Prints stack trace with annotations if modifier is %v.
 
 SUPPRESSED part:
+
 Prints suppressed error if it exists. Uses Format if it implements fmt.Formatter.
 
 E.g. with %v:
@@ -120,6 +121,10 @@ E.g. with %v:
     	C:/Go/src/runtime/proc.go:201
     runtime.goexit
     	C:/Go/src/runtime/asm_amd64.s:1333
+
+    SUPPRESSED:
+    ERROR:
+    cant create task
 
 Cause
 

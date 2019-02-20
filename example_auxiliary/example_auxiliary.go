@@ -60,13 +60,17 @@ func SaveTaskToDbMockSuccess() error {
 func CreateTaskInitedByUser1(i int) error {
 	switch i {
 	case 0:
-		return errors.WrapAnnotated(SaveTaskToDbMockConnectionError(), "Inited by user 1")
+		return errors.WrapAnnotated(
+			SaveTaskToDbMockConnectionError(), "Inited by user 1")
 	case 1:
-		return errors.WrapAnnotated(SaveTaskToDbMockExistButNotDone(), "Inited by user 1")
+		return errors.WrapAnnotated(
+			SaveTaskToDbMockExistButNotDone(), "Inited by user 1")
 	case 2:
-		return errors.WrapAnnotated(SaveTaskToDbMockExistAndDone(), "Inited by user 1")
+		return errors.WrapAnnotated(
+			SaveTaskToDbMockExistAndDone(), "Inited by user 1")
 	case 3:
-		return errors.WrapAnnotated(SaveTaskToDbMockSuccess(), "Inited by user 1")
+		return errors.WrapAnnotated(
+			SaveTaskToDbMockSuccess(), "Inited by user 1")
 	default:
 		panic("Assertion")
 	}
