@@ -114,13 +114,15 @@ func WrapAnnotated_skipstack(skip int, err error, annotation string, errcode ...
 
 func (f *_error) Format(s fmt.State, verb rune) {
 	switch verb {
-	case 'v':
-		fmt.Fprintf(s, "ERROR: %s\nERR CODE: %v\n", f.Error(), f.errcode)
-		fmt.Fprint(s, f.annotatedStack)
 	case 's':
 		io.WriteString(s, f.Error())
 	case 'q':
 		fmt.Fprintf(s, "%q", f.Error())
+	default:
+		fmt.Fprintf(s, "%"+string(verb), f.error)
+		fmt.Fprint(s, "\n")
+		fmt.Fprint(s, f.annotatedStack)
+		fmt.Fprint(s, "\n")
 	}
 }
 

@@ -20,11 +20,12 @@ func Example() {
 	for i := 0; i < 4; i++ {
 		// func is smth like try block here
 		func() {
+			defer fmt.Printf("\nCase %d finished\n----------\n\n\n", i)
 			// smth like catch block
 			defer errors.Handler(func(err errors.Handleable) {
 				switch errors.ErrCode(err) {
 				case errcode_apicreatetaskfailed:
-					fmt.Printf("%s\n\n\n", err) // log
+					fmt.Printf("%s\n", err) // log
 					// may be some specific actions
 				case errcode_apiuserloginfailed:
 					// may be some specific actions
@@ -55,10 +56,10 @@ func apiCreateTask(i int) (reterr error) {
 	defer errors.Handler(func(err errors.Handleable) {
 		switch errors.ErrCode(err) {
 		case example_auxiliary.ErrCode_ConnectionFailed, example_auxiliary.ErrCode_TaskAlreadyExistButNotDone:
-			fmt.Print(err, "\n\n\n\n") // log
+			fmt.Print(err, "\n") // log
 			reterr = err
 		case example_auxiliary.ErrCode_TaskAlreadyExistAndDone:
-			fmt.Print(err, "\n\n\n\n") // log
+			fmt.Print(err, "\n") // log
 			// do some specific logic - e.g. mark task in db as done
 			reterr = err
 		default:
