@@ -13,21 +13,37 @@ type _error struct {
 	suppressed error
 }
 
+type setup struct {
+	errcode *interface{}
+	annotation *string
+	extender func(error) error
+}
+
+type option func(*setup)
+
+func AddErrCode(errcode interface{}) option {
+	return func(o *setup) {
+		o.errcode = &errcode
+	}
+}
+
+func AddAnnotation(annotation string) option {
+	return func(o *setup) {
+		o.annotation = &annotation
+	}
+}
+
+func AddExtender(extender func(error) error) option {
+	return func(o *setup) {
+		o.extender = extender
+	}
+}
+
 // New returns error with error code, if specified.
 //
 // errcode is optional param. First of variadic parameters is used, else are ignored.
-func New(message string, errcode ...interface{}) error {
-	return WrapAnnotated_skipstack(1, errors.New(message), "", errcode...)
-}
-
-// Errorf returns error with formatted message and without error code.
-func Errorf(format string, args ...interface{}) error {
-	return WrapAnnotated_skipstack(1, fmt.Errorf(format, args...), "")
-}
-
-// Codef returns error with formatted message and specified error code.
-func Codef(errcode interface{}, format string, args ...interface{}) error {
-	return WrapAnnotated_skipstack(1, fmt.Errorf(format, args...), "", errcode)
+func New(message string, opts ...option) error {
+	return Wrap_skipstack(1, errors.New(message), opts...)
 }
 
 // Wrap returns error with underlying err and error code, if specified.
@@ -36,34 +52,8 @@ func Codef(errcode interface{}, format string, args ...interface{}) error {
 // errcode is specified, it is overridden.
 //
 // errcode is optional param. First of variadic parameters is used, else are ignored.
-func Wrap(err error, errcode ...interface{}) error {
-	return WrapAnnotated_skipstack(1, err, "", errcode...)
-}
-
-// WrapAnnotated returns annotated error with underlying err and error code, if specified.
-// If err is nil returns nil.
-// If err already has error code(it means it was created earlier by one of this package's functions) and
-// errcode is specified, it is overridden.
-// See https://godoc.org/github.com/pashaosipyants/errors/#hdr-Annotations to learn about annotations.
-//
-// errcode is optional param. First of variadic parameters is used, else are ignored.
-func WrapAnnotated(err error, annotation string, errcode ...interface{}) error {
-	return WrapAnnotated_skipstack(1, err, annotation, errcode...)
-}
-
-// WrapAndExtend returns error with underlying extender(err) and error code, if specified.
-// If err is nil returns nil.
-// If err already has error code(it means it was created earlier by one of this package's functions) and
-// errcode is specified, it is overridden.
-//
-// errcode is optional param. First of variadic parameters is used, else are ignored.
-func WrapAndExtend(err error, extender func(error) error, errcode ...interface{}) error {
-	if err == nil {
-		return nil
-	}
-	reterr := WrapAnnotated_skipstack(1, err, "", errcode...).(*_error)
-	reterr.error = extender(reterr.error)
-	return reterr
+func Wrap(err error, opts ...option) error {
+	return Wrap_skipstack(1, err, opts...)
 }
 
 // Suppress returns error with underlying newerr, error code, if specified, and putting suppressed param as a
@@ -74,8 +64,8 @@ func WrapAndExtend(err error, extender func(error) error, errcode ...interface{}
 // errcode is specified, it is overridden.
 //
 // errcode is optional param. First of variadic parameters is used, else are ignored.
-func Suppress(suppressed, newerr error, errcode ...interface{}) error {
-	return Suppress_skipstack(1, suppressed, newerr, errcode...)
+func Suppress(suppressed, newerr error, opts ...option) error {
+	return Suppress_skipstack(1, suppressed, newerr, opts...)
 }
 
 /* for wrappers of this package */
@@ -83,67 +73,53 @@ func Suppress(suppressed, newerr error, errcode ...interface{}) error {
 // wrapper objects
 
 // see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
-func New_skipstack(message string, skip int, errcode ...interface{}) error {
-	return WrapAnnotated_skipstack(skip+1, errors.New(message), "", errcode...)
+func New_skipstack(message string, skip int, opts ...option) error {
+	return Wrap_skipstack(skip+1, errors.New(message), opts...)
 }
-
 // see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
-func Errorf_skipstack(skip int, format string, args ...interface{}) error {
-	return WrapAnnotated_skipstack(skip+1, fmt.Errorf(format, args...), "")
-}
-
-// see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
-func Codef_skipstack(skip int, errcode interface{}, format string, args ...interface{}) error {
-	return WrapAnnotated_skipstack(skip+1, fmt.Errorf(format, args...), "", errcode)
-}
-
-// see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
-func Wrap_skipstack(skip int, err error, errcode ...interface{}) error {
-	return WrapAnnotated_skipstack(skip+1, err, "", errcode...)
-}
-
-// see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
-func WrapAnnotated_skipstack(skip int, err error, annotation string, errcode ...interface{}) error {
+func Wrap_skipstack(skip int, err error, opts ...option) error {
 	if err == nil {
 		return nil
 	}
 
+	setup := new(setup)
+	for _, opt := range opts {
+		opt(setup)
+	}
+
 	reterr := new(_error)
-	switch err1, ok := err.(*_error); {
-	default:
-		panic("assertion failed - it should be unreachable!!!\n Please, make an issue for developers of this package")
-	case ok && len(errcode) == 0 && annotation == "":
-		return err
-	case ok:
+	if err1, ok := err.(*_error); ok {
 		reterr.error = err1.error
 		reterr.errcode = err1.errcode
 		reterr.stack = err1.stack
 		copy_map_annots(err1.annotations, &reterr.annotations)
-	case !ok:
-		reterr.error = err
-		reterr.stack = callers(skip + 1)
 	}
 
-	if len(errcode) > 0 {
-		reterr.errcode = errcode[0]
-	}
-
-	if annotation != "" {
+	if setup.annotation != nil {
 		if reterr.annotations == nil {
 			reterr.annotations = make(map[string]string)
 		}
-		reterr.addAnnotation(skip + 1, annotation)
+		reterr.addAnnotation(skip + 1, *setup.annotation)
 	}
+
+	if setup.errcode != nil {
+		reterr.errcode = *setup.errcode
+	}
+
+	if setup.extender != nil {
+		reterr.error = setup.extender(reterr.error)
+	}
+
 	return reterr
 }
 
 // see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
-func Suppress_skipstack(skip int, suppressed, newerr error, errcode ...interface{}) error {
+func Suppress_skipstack(skip int, suppressed, newerr error, opts ...option) error {
 	if newerr == nil {
 		return nil
 	}
 
-	reterr := WrapAnnotated_skipstack(skip+1, newerr, "", errcode...).(*_error)
+	reterr := Wrap_skipstack(skip+1, newerr, opts...).(*_error)
 	reterr.suppressed = suppressed
 	return reterr
 }
