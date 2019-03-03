@@ -51,6 +51,21 @@ func WrapAnnotated(err error, annotation string, errcode ...interface{}) error {
 	return WrapAnnotated_skipstack(1, err, annotation, errcode...)
 }
 
+// WrapAndExtend returns error with underlying extender(err) and error code, if specified.
+// If err is nil returns nil.
+// If err already has error code(it means it was created earlier by one of this package's functions) and
+// errcode is specified, it is overridden.
+//
+// errcode is optional param. First of variadic parameters is used, else are ignored.
+func WrapAndExtend(err error, extender func(error) error, errcode ...interface{}) error {
+	if err == nil {
+		return nil
+	}
+	reterr := WrapAnnotated_skipstack(1, err, "", errcode...).(*_error)
+	reterr.error = extender(reterr.error)
+	return reterr
+}
+
 // Suppress returns error with underlying newerr, error code, if specified, and putting suppressed param as a
 // suppressed error of returned error.
 // Suppressed error is printed and can be obtained by Suppressed function of this package.
@@ -61,22 +76,6 @@ func WrapAnnotated(err error, annotation string, errcode ...interface{}) error {
 // errcode is optional param. First of variadic parameters is used, else are ignored.
 func Suppress(suppressed, newerr error, errcode ...interface{}) error {
 	return Suppress_skipstack(1, suppressed, newerr, errcode...)
-}
-
-// ExtendCause applies extender to err and returns result.
-// But if err is already wrapped with this package's type, extender is applied to Cause(err).
-func ExtendCause(err error, extender func(error) error) error {
-	if err1, ok := err.(*_error); ok {
-		reterr := new(_error)
-		reterr.errcode = err1.errcode
-		reterr.stack = err1.stack
-		copy_map_annots(err1.annotations, &reterr.annotations)
-		reterr.error = extender(err1.error)
-		return reterr
-
-	} else {
-		return extender(err)
-	}
 }
 
 /* for wrappers of this package */

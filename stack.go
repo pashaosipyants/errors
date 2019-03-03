@@ -6,6 +6,12 @@ import (
 	"runtime"
 )
 
+// Maximum depth of stack recorded to an error.
+// One can change it, but be cautious.
+// Set value only in initialization part of a program before any error is created
+// not to cause concurrency problems.
+var MaxDepth = 32
+
 // annotatedStack represents a stack of program counters and annotations bounded to functions
 type annotatedStack struct {
 	stack       []uintptr
@@ -53,10 +59,11 @@ func copy_map_annots(src map[string]string, dst *map[string]string) {
 // callers with skip==0 returns stack of program counters starting from caller of callers
 // with greater skip it skips more stack frames starting from upper level of invocations
 func callers(skip int) []uintptr {
-	const depth = 32
-	var pcs [depth]uintptr
+	var pcs [MaxDepth]uintptr
 	n := runtime.Callers(2+skip, pcs[:])
-	return pcs[0:n]
+	pcsReduced := make([]uintptr, n)
+	copy(pcsReduced, pcs[:])
+	return pcsReduced
 }
 
 // frame represents a program counter inside a stack frame.
