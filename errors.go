@@ -1,7 +1,6 @@
 package errors
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -9,41 +8,20 @@ import (
 type _error struct {
 	error
 	annotatedStack
-	errcode interface{}
 	suppressed error
-}
-
-type setup struct {
-	errcode *interface{}
-	annotation *string
-	extender func(error) error
-}
-
-type option func(*setup)
-
-func AddErrCode(errcode interface{}) option {
-	return func(o *setup) {
-		o.errcode = &errcode
-	}
-}
-
-func AddAnnotation(annotation string) option {
-	return func(o *setup) {
-		o.annotation = &annotation
-	}
-}
-
-func AddExtender(extender func(error) error) option {
-	return func(o *setup) {
-		o.extender = extender
-	}
 }
 
 // New returns error with error code, if specified.
 //
 // errcode is optional param. First of variadic parameters is used, else are ignored.
-func New(message string, opts ...option) error {
-	return Wrap_skipstack(1, errors.New(message), opts...)
+func New(message string, opts ...Option) error {
+	opts = append([]Option{Skip(1)}, opts...)
+	return Wrap(Error(message), opts...)
+}
+
+func Newf(format string, args []interface{}, opts ...Option) error {
+	opts = append([]Option{Skip(1)}, opts...)
+	return Wrap(Errorf(format, args...), opts...)
 }
 
 // Wrap returns error with underlying err and error code, if specified.
@@ -52,8 +30,36 @@ func New(message string, opts ...option) error {
 // errcode is specified, it is overridden.
 //
 // errcode is optional param. First of variadic parameters is used, else are ignored.
-func Wrap(err error, opts ...option) error {
-	return Wrap_skipstack(1, err, opts...)
+func Wrap(err error, opts ...Option) error {
+	if err == nil {
+		return nil
+	}
+
+	setup := new(setup).setup(opts)
+
+	reterr := new(_error)
+	if err1, ok := err.(*_error); ok {
+		reterr.error = err1.error
+		reterr.suppressed = err1.suppressed
+		reterr.stack = err1.stack
+		copy_map_annots(err1.annotations, &reterr.annotations)
+	} else {
+		reterr.error = err
+		reterr.stack = callers(setup.skip + 1)
+	}
+
+	if setup.annotation != nil {
+		if reterr.annotations == nil {
+			reterr.annotations = make(map[string]string)
+		}
+		reterr.addAnnotation(setup.skip + 1, *setup.annotation)
+	}
+
+	if setup.extender != nil {
+		reterr.error = setup.extender(reterr.error)
+	}
+
+	return reterr
 }
 
 // Suppress returns error with underlying newerr, error code, if specified, and putting suppressed param as a
@@ -64,62 +70,13 @@ func Wrap(err error, opts ...option) error {
 // errcode is specified, it is overridden.
 //
 // errcode is optional param. First of variadic parameters is used, else are ignored.
-func Suppress(suppressed, newerr error, opts ...option) error {
-	return Suppress_skipstack(1, suppressed, newerr, opts...)
-}
-
-/* for wrappers of this package */
-// with these functions one can specify correct first stack frame to print in stack trace to skip stack frames of
-// wrapper objects
-
-// see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
-func New_skipstack(message string, skip int, opts ...option) error {
-	return Wrap_skipstack(skip+1, errors.New(message), opts...)
-}
-// see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
-func Wrap_skipstack(skip int, err error, opts ...option) error {
-	if err == nil {
-		return nil
-	}
-
-	setup := new(setup)
-	for _, opt := range opts {
-		opt(setup)
-	}
-
-	reterr := new(_error)
-	if err1, ok := err.(*_error); ok {
-		reterr.error = err1.error
-		reterr.errcode = err1.errcode
-		reterr.stack = err1.stack
-		copy_map_annots(err1.annotations, &reterr.annotations)
-	}
-
-	if setup.annotation != nil {
-		if reterr.annotations == nil {
-			reterr.annotations = make(map[string]string)
-		}
-		reterr.addAnnotation(skip + 1, *setup.annotation)
-	}
-
-	if setup.errcode != nil {
-		reterr.errcode = *setup.errcode
-	}
-
-	if setup.extender != nil {
-		reterr.error = setup.extender(reterr.error)
-	}
-
-	return reterr
-}
-
-// see https://godoc.org/github.com/pashaosipyants/errors/#hdr-Skipstack_management
-func Suppress_skipstack(skip int, suppressed, newerr error, opts ...option) error {
+func Suppress(suppressed, newerr error, opts ...Option) error {
 	if newerr == nil {
 		return nil
 	}
 
-	reterr := Wrap_skipstack(skip+1, newerr, opts...).(*_error)
+	opts = append(opts, SkipAdd(1))
+	reterr := Wrap(newerr, opts...).(*_error)
 	reterr.suppressed = suppressed
 	return reterr
 }
@@ -156,21 +113,12 @@ func (f *_error) Format(s fmt.State, verb rune) {
 	}
 }
 
-func (w *_error) Cause() error { return w.error }
-
-func (w *_error) ErrCode() interface{} { return w.errcode }
-
-func (w *_error) Suppressed() error { return w.suppressed }
+func (w *_error) Handleable82aad239749f494ea1b6459518249fef() {}
 
 /* getters */
 
-// If it is possible, gets errcode of the error.
-// Otherwise returns nil.
-func ErrCode(err error) interface{} {
-	if err, ok := err.(*_error); ok {
-		return err.ErrCode()
-	}
-	return nil
+func Is(err1, err2 error) bool {
+	return Cause(err1) == Cause(err2)
 }
 
 // If it is possible, gets underlying error wrapped with this package's error type.

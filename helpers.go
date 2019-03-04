@@ -1,5 +1,10 @@
 package errors
 
+import (
+	"errors"
+	"fmt"
+)
+
 // AnyErr is helper function that returns first not nil error or nil if there are none.
 func AnyErr(errs ...error) error {
 	for _, err := range errs {
@@ -19,4 +24,16 @@ func AnyFuncErr(errfuncs ...func() error) error {
 		}
 	}
 	return nil
+}
+
+func Args(args ...interface{}) []interface{} {
+	return args
+}
+
+func Error(message string) error {
+	return errors.New(message)
+}
+
+func Errorf(format string, args ...interface{}) error {
+	return fmt.Errorf(format, args...)
 }
