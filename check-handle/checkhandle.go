@@ -4,7 +4,7 @@ package check_handle
 // One can handle this panic defering Handler func.
 func Check(err error) {
 	if err != nil {
-		panic(handleable{err})
+		panic(Handleable{err})
 	}
 }
 
@@ -12,26 +12,28 @@ func Check(err error) {
 // One can handle this panic defering Handler func.
 func CheckIf(ifErr bool, err error) {
 	if ifErr {
-		panic(handleable{err})
+		panic(Handleable{err})
 	}
 }
 
 // Type to handle Check...() produced panic.
 // not to confuse with ordinary panic
-type handleable struct {
+type Handleable struct {
 	err error
 }
 
 // defer Handle and provide handler to process panics made by Check...().
 // Panics with type different to this package's one are just forwarded.
 // elseDefer - ...
+// other panics are not intercepted
+// don't forget that Handler may not obtain error if u recover earlier, check type
 func Handler(handle func(err error), elseDefer ...func()) {
 	switch r := recover().(type) {
 	case nil:
 		for _, f := range elseDefer {
 			f()
 		}
-	case handleable:
+	case Handleable:
 		handle(r.err)
 	default:
 		panic(r)

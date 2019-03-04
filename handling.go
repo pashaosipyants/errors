@@ -33,6 +33,8 @@ func CheckIfNewf(ifErr bool, format string, args []interface{}, opts ...Option) 
 	)
 }
 
+type Handleable = c_h.Handleable
+
 // defer Handle and provide handler to process panics made by Check...().
 // Panics with type different to this package's one are just forwarded.
 // elseDefer - ...
