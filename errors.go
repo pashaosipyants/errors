@@ -113,8 +113,6 @@ func (f *_error) Format(s fmt.State, verb rune) {
 	}
 }
 
-func (w *_error) Handleable82aad239749f494ea1b6459518249fef() {}
-
 /* getters */
 
 func Is(err1, err2 error) bool {
@@ -125,7 +123,7 @@ func Is(err1, err2 error) bool {
 // Otherwise returns err itself.
 func Cause(err error) error {
 	if err, ok := err.(*_error); ok {
-		return err.Cause()
+		return err.error
 	}
 	return err
 }
@@ -134,9 +132,7 @@ func Cause(err error) error {
 // Otherwise returns nil.
 func Suppressed(err error) error {
 	if err, ok := err.(*_error); ok {
-		return err.Suppressed()
+		return err.suppressed
 	}
 	return nil
 }
-
-var _ Handleable = (*_error)(nil)
