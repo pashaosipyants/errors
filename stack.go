@@ -10,7 +10,7 @@ import (
 // One can change it, but be cautious.
 // Set value only in initialization part of a program before any error is created
 // not to cause concurrency problems.
-var MaxDepth = 32
+const MaxDepth = 32
 
 // annotatedStack represents a stack of program counters and annotations bounded to functions
 type annotatedStack struct {
