@@ -1,71 +1,35 @@
 package errors
 
-import "testing"
+import (
+	"database/sql"
+	"io"
+	"testing"
+)
 
 func TestCheck(t *testing.T) {
-	for i := 0; i < 3; i++ {
+	failures := []func(){
+		func() { Check(nil) },
+		func() { Check(io.EOF) },
+		func() { Check(sql.ErrNoRows, OValue("key", "value")) },
+	}
+	for i, f := range failures {
 		func() {
-			defer Handler(func(err Handleable) {
-				switch x := ErrCode(err); x {
-				case 0:
-				case 1:
-				case 2:
+			defer Handler(func(err error) {
+				switch {
+				case IsE(err, io.EOF):
+				case ValueE(err, "key") == "value":
 				default:
-					t.Errorf("wrong error code %v", x)
+					t.Error("can't be here")
 				}
 			})
 
-			Check(nil)
-			Check(New("AAA", 100), i) // check if errcode is override
-			t.Error("can't execute this code")
+			f()
+			if i != 0 {
+				t.Errorf("can't execute this code. iteration %d", i)
+			}
 		}()
 	}
 }
-
-func twoPlusTwo() int {
-	return 5
-}
-
-func TestCheckIf(t *testing.T) {
-	for i := 0; i < 3; i++ {
-		func() {
-			defer Handler(func(err Handleable) {
-				switch x := ErrCode(err); x {
-				case 0:
-				case 1:
-				case 2:
-				default:
-					t.Errorf("wrong error code %v", x)
-				}
-			})
-
-			CheckIf(false, nil)
-			CheckIf(twoPlusTwo() != 4, New("twoPlusTwo is wrong", i))
-			t.Error("can't execute this code")
-		}()
-	}
-}
-
-func TestCheckIfNew(t *testing.T) {
-	for i := 0; i < 3; i++ {
-		func() {
-			defer Handler(func(err Handleable) {
-				switch x := ErrCode(err); x {
-				case 0:
-				case 1:
-				case 2:
-				default:
-					t.Errorf("wrong error code %v", x)
-				}
-			})
-
-			CheckIfNew(false, "AAA")
-			CheckIfNew(twoPlusTwo() != 4, "twoPlusTwo is wrong", i)
-			t.Error("can't execute this code")
-		}()
-	}
-}
-
 
 func TestRealPanicHandling(t *testing.T) {
 	ok := false
@@ -83,20 +47,20 @@ func TestRealPanicHandling(t *testing.T) {
 			}
 		}
 	}()
-	defer Handler(func(err Handleable) {
+	defer Handler(func(err error) {
 		t.Error("can't be handled here")
 	})
 	panic("AAA")
 }
 
 func TestWithoutAnyPanic(t *testing.T) {
-	defer Handler(func(err Handleable) {
+	defer Handler(func(err error) {
 		t.Error("can't be handled here")
 	})
 }
 
 func TestPanicNil(t *testing.T) {
-	defer Handler(func(err Handleable) {
+	defer Handler(func(err error) {
 		t.Error("can't be handled here")
 	})
 	panic(nil)
