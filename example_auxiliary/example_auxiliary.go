@@ -1,46 +1,51 @@
 package example_auxiliary
 
-import "github.com/pashaosipyants/errors"
+import (
+	"fmt"
 
-// Error code to distinguish errors.
-const (
-	ErrCode_ConnectionFailed = "connection_failed"
-	ErrCode_TaskAlreadyExistButNotDone = "already_exist_but_not_done"
-	ErrCode_TaskAlreadyExistAndDone = "already_exist_and_done"
+	. "github.com/pashaosipyants/errors/v2"
+	"github.com/sirupsen/logrus"
+)
+
+// Different errors
+var (
+	ErrConnectionFailed           = NewE("connection_failed")
+	ErrTaskAlreadyExistButNotDone = NewE("already_exist_but_not_done")
+	ErrTaskAlreadyExistAndDone    = NewE("already_exist_and_done")
 )
 
 // It mocks case when one tries to save task to db, but connection error occurs.
 //
-// It returns error with error code ErrCode_ConnectionFailed using:
-//     errors.New("connection failed", ErrCode_ConnectionFailed)
-func SaveTaskToDbMockConnectionError() error {
+// It returns specific error with stacktrace and with logger inside, which contains relevant fields.
+func SaveTaskToDbMockConnectionError(l *logrus.Entry) error {
 	// db work
 
-	return errors.New("connection failed", ErrCode_ConnectionFailed)
+	l = l.WithField("reason", "connection")
+	return WrapE(ErrConnectionFailed, OStack(), OValue("logger", l))
 }
 
 // It mocks case when one tries to save task to db, but it already exists.
 // Then it asks if task is already done and it occurs it is not.
 //
-// It returns error with error code ErrCode_TaskAlreadyExistButNotDone using:
-//     return errors.New("already exist", ErrCode_TaskAlreadyExistButNotDone)
-func SaveTaskToDbMockExistButNotDone() error {
+// It returns specific error with stacktrace and with logger inside, which contains relevant fields.
+func SaveTaskToDbMockExistButNotDone(l *logrus.Entry) error {
 	// db work
 	// ask another service if task is already done - false
 
-	return errors.New("already exist", ErrCode_TaskAlreadyExistButNotDone)
+	l = l.WithField("reason", "duplicate/notDone")
+	return WrapE(ErrTaskAlreadyExistButNotDone, OStack(), OValue("logger", l))
 }
 
 // It mocks case when one tries to save task to db, but it already exists.
 // Then it asks if task is already done and it occurs it is done.
 //
-// It returns error with error code ErrCode_TaskAlreadyExistAndDone using:
-//     return errors.New("already exist and done", ErrCode_TaskAlreadyExistAndDone)
-func SaveTaskToDbMockExistAndDone() error {
+// It returns specific error with stacktrace and with logger inside, which contains relevant fields.
+func SaveTaskToDbMockExistAndDone(l *logrus.Entry) error {
 	// db work
 	// ask another service if task is already done - true
 
-	return errors.New("already exist and done", ErrCode_TaskAlreadyExistAndDone)
+	l = l.WithField("reason", "duplicate/Done")
+	return WrapE(ErrTaskAlreadyExistAndDone, OStack(), OValue("logger", l))
 }
 
 // It mocks case of successful saving task.
@@ -55,23 +60,33 @@ func SaveTaskToDbMockSuccess() error {
 // 2 - calls SaveTaskToDbMockExistAndDone
 // 3 - calls SaveTaskToDbMockSuccess
 //
-// All errors occured it annotates with information that this task id inited by user 1 using:
-//     errors.WrapAnnotated(SaveTaskToDb...(), "Inited by user 1")
-func CreateTaskInitedByUser1(i int) error {
+// All errors occured it annotates with information that this task is inited by userID
+func CreateTaskInitedByUser(l *logrus.Entry, i, userID int) (reterr error) {
+	l = l.WithField("service", "database")
+
+	defer Handler(func(err error) {
+		reterr = WrapE(err, OValue("logger", l)) // actually not set, because it's set inside further functions with more specific fields
+	})
+
 	switch i {
 	case 0:
-		return errors.WrapAnnotated(
-			SaveTaskToDbMockConnectionError(), "Inited by user 1")
+		Check(
+			SaveTaskToDbMockConnectionError(l),
+			OAnno(fmt.Sprintf("Inited by user %v", userID)))
 	case 1:
-		return errors.WrapAnnotated(
-			SaveTaskToDbMockExistButNotDone(), "Inited by user 1")
+		Check(
+			SaveTaskToDbMockExistButNotDone(l),
+			OAnno(fmt.Sprintf("Inited by user %v", userID)))
 	case 2:
-		return errors.WrapAnnotated(
-			SaveTaskToDbMockExistAndDone(), "Inited by user 1")
+		Check(
+			SaveTaskToDbMockExistAndDone(l),
+			OAnno(fmt.Sprintf("Inited by user %v", userID)))
 	case 3:
-		return errors.WrapAnnotated(
-			SaveTaskToDbMockSuccess(), "Inited by user 1")
+		Check(
+			SaveTaskToDbMockSuccess(),
+			OAnno(fmt.Sprintf("Inited by user %v", userID)))
 	default:
 		panic("Assertion")
 	}
+	return
 }

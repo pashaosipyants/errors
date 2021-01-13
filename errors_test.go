@@ -1,183 +1,83 @@
 package errors
 
 import (
-	"errors"
+	"database/sql"
+	"fmt"
 	"io"
-	"reflect"
 	"testing"
 )
 
-func TestNew(t *testing.T) {
-	tests := []struct {
-		err      error
-		wantMsg  string
-		wantCode interface{}
-	}{
-		{
-			New("msg"), "msg", nil,
-		},
-		{
-			New("msg with format specifiers %v %s"), "msg with format specifiers %v %s", nil,
-		},
-		{
-			New("msg and err code", 1), "msg and err code", 1,
-		},
-		{
-			New("msg and err codes variadic too many", 1, 2, 3),
-			"msg and err codes variadic too many", 1,
-		},
-	}
-
-	for _, tt := range tests {
-		if tt.err.Error() != tt.wantMsg {
-			t.Errorf("New Error: got: %q, want %q", tt.err, tt.wantMsg)
-		}
-		if !reflect.DeepEqual(Cause(tt.err), errors.New(tt.wantMsg)) {
-			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), tt.wantMsg)
-		}
-		if ErrCode(tt.err) != tt.wantCode {
-			t.Errorf("New ErrCode: got: %v, want %v", ErrCode(tt.err), tt.wantCode)
-		}
-	}
-}
-
-func TestErrorf(t *testing.T) {
-	tests := []struct {
-		err  error
-		want string
-	}{
-		{Errorf("read error without format specifiers"), "read error without format specifiers"},
-		{Errorf("read error with %d format specifier", 1), "read error with 1 format specifier"},
-	}
-
-	for _, tt := range tests {
-		if tt.err.Error() != tt.want {
-			t.Errorf("New Error: got: %q, want %q", tt.err, tt.want)
-		}
-		if !reflect.DeepEqual(Cause(tt.err), errors.New(tt.want)) {
-			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), tt.want)
-		}
-		if ErrCode(tt.err) != nil {
-			t.Errorf("New ErrCode: got: %v, want %v", ErrCode(tt.err), nil)
-		}
-	}
-}
-
-func TestCodef(t *testing.T) {
-	tests := []struct {
-		err  error
-		want string
-	}{
-		{Codef(1, "read error without format specifiers"), "read error without format specifiers"},
-		{Codef(1, "read error with %d format specifier", 1), "read error with 1 format specifier"},
-	}
-
-	for _, tt := range tests {
-		if tt.err.Error() != tt.want {
-			t.Errorf("New Error: got: %q, want %q", tt.err, tt.want)
-		}
-		if !reflect.DeepEqual(Cause(tt.err), errors.New(tt.want)) {
-			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), tt.want)
-		}
-		if ErrCode(tt.err) != 1 {
-			t.Errorf("New ErrCode: got: %v, want %v", ErrCode(tt.err), 1)
-		}
-	}
-}
-
 func TestWrapNil(t *testing.T) {
-	got := Wrap(nil, "no error")
-	if got != nil {
-		t.Errorf("Wrap(nil, \"no error\"): got %v, expected nil", got)
+	checkTest := func(funcTest string, got error) {
+		if got != nil {
+			t.Errorf("%s: got %v, expected nil", funcTest, got)
+		}
+	}
+
+	checkTest("WrapStackE(nil)",
+		WrapStackE(nil))
+	checkTest("WrapAnnotationE(nil)",
+		WrapAnnotationE(nil, ""))
+	checkTest("WrapSuppressedE(nil)",
+		WrapSuppressedE(nil, io.EOF))
+	checkTest("WrapValueE(nil)",
+		WrapValueE(nil, "", ""))
+}
+
+func errofWrap() OptionE {
+	return func(err error, _ int) error {
+		return fmt.Errorf("wrapped: %w", err)
 	}
 }
 
 func TestWrap(t *testing.T) {
 	tests := []struct {
-		err      error
-		wantMsg  string
-		wantCode interface{}
+		err            error
+		opts           []OptionE
+		key, value     interface{}
+		wantMsg        string
+		wantSuppressed error
 	}{
-		{Wrap(io.EOF), "EOF", nil},
-		{Wrap(Wrap(io.EOF)), "EOF", nil},
-		{Wrap(io.EOF, 1), "EOF", 1},
-		{Wrap(io.EOF, 1, 2, 3), "EOF", 1},
-		{Wrap(Wrap(io.EOF, 1)), "EOF", 1},
-		{Wrap(Wrap(io.EOF), 1), "EOF", 1},
-		{Wrap(Wrap(io.EOF, 2), 1), "EOF", 1},
+		{io.EOF, nil, nil, nil, "EOF", nil},
+		{io.EOF,
+			[]OptionE{OStack(), OSupp(sql.ErrNoRows)},
+			nil, nil, "EOF", sql.ErrNoRows},
+		{io.EOF,
+			[]OptionE{OSupp(sql.ErrNoRows), OStack(), OAnno("sdfsdf"), OStack()},
+			nil, nil, "EOF", sql.ErrNoRows},
+		{io.EOF,
+			[]OptionE{OSupp(sql.ErrNoRows), OAnno("sdfsdf"), OStack(), OValue("a", "b")},
+			"a", "b", "EOF", sql.ErrNoRows},
+		{io.EOF,
+			[]OptionE{OSupp(sql.ErrNoRows), OValue("a", "b"), OAnno("sdfsdf"), OStack()},
+			"a", "b", "EOF", sql.ErrNoRows},
+		{io.EOF,
+			[]OptionE{OValue("a", "b"), OValue("c", "d")},
+			"a", "b", "EOF", nil},
+		{io.EOF,
+			[]OptionE{OValue("a", "b"), OAnno("sdfsdf"), OStack(), errofWrap()},
+			"a", "b", "wrapped: EOF", nil},
 	}
 
 	for _, tt := range tests {
-		if tt.err.Error() != tt.wantMsg {
-			t.Errorf("New Error: got: %q, want %q", tt.err, tt.wantMsg)
+		err := WrapE(tt.err, tt.opts...)
+
+		if err.Error() != tt.wantMsg {
+			t.Errorf("Wrong err.Error(): got: %q, want %q", err.Error(), tt.wantMsg)
 		}
-		if Cause(tt.err) != io.EOF {
-			t.Errorf("New Cause: got: %q, want %q", Cause(tt.err), io.EOF)
+		if !IsE(err, tt.err) {
+			t.Error("Is failed")
 		}
-		if ErrCode(tt.err) != tt.wantCode {
-			t.Errorf("New ErrCode: got: %v, want %v", ErrCode(tt.err), tt.wantCode)
+		if tt.key != nil && ValueE(err, tt.key) != tt.value {
+			t.Errorf("Wrong Value in err: got: %q, want %q", ValueE(err, tt.key), tt.value)
 		}
-	}
-}
-
-type nilError struct{}
-
-func (nilError) Error() string { return "nil error" }
-
-func TestCause(t *testing.T) {
-	tests := []struct {
-		err  error
-		want error
-	}{{
-		// nil error is nil
-		err:  nil,
-		want: nil,
-	}, {
-		// explicit nil error is nil
-		err:  (error)(nil),
-		want: nil,
-	}, {
-		// typed nil is nil
-		err:  (*nilError)(nil),
-		want: (*nilError)(nil),
-	}, {
-		// uncaused error is unaffected
-		err:  io.EOF,
-		want: io.EOF,
-	}, {
-		err:  New("AAA"),
-		want: errors.New("AAA"),
-	}, {
-		err:  Wrap(io.EOF),
-		want: io.EOF,
-	}}
-
-	for i, tt := range tests {
-		got := Cause(tt.err)
-		if !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("example_auxiliary %d: got %v, want %v", i+1, got, tt.want)
-		}
-	}
-}
-
-func TestErrCode(t *testing.T) {
-	tests := []struct {
-		err  error
-		wantCode interface{}
-	}{{
-		err:  nil,
-		wantCode: nil,
-	}, {
-		err:  (error)(nil),
-		wantCode: nil,
-	}, {
-		err:  &_error{errcode: "code"},
-		wantCode: "code",
-	}}
-
-	for i, tt := range tests {
-		if ErrCode(tt.err) != tt.wantCode {
-			t.Errorf("example_auxiliary %d: got %v, want %v", i+1, ErrCode(tt.err), tt.wantCode)
+		if tt.wantSuppressed != nil {
+			s := SuppressedE(err)
+			if len(s) != 1 {
+				t.Errorf("Wrong number of Suppressed in err: got: %q, want %q", len(s), 1)
+			} else if s[0] != tt.wantSuppressed {
+				t.Errorf("Wrong Suppressed in err: got: %q, want %q", s[0], tt.wantSuppressed)
+			}
 		}
 	}
 }

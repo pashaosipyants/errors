@@ -156,7 +156,7 @@ Handle check mechanism
 
 example:
 
-    defer errors.Handler(func(err errors.Handleable) {
+    defer errors.Handler(func(err errors.handleable) {
       log.Error(err)
       switch err.ErrCode() {
         case 1:
