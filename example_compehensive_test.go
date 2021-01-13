@@ -35,7 +35,7 @@ func Example() {
 			defer Handler(func(err error) {
 				switch ValueE(err, "api") {
 				case errcode_apicreatetaskfailed:
-					logger, ok := ValueE(err, "logger").(*logrus.Entry)
+					logger, ok := ValueE(err, "logger").(*logrus.Entry) // logger with relevant fields of functions deeper in the call stack
 					if !ok {
 						logger = l
 					}

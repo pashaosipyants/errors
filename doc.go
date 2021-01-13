@@ -1,15 +1,35 @@
 /*
-Package errors provides detailed stack-traced description for error type and exception(handle-check) style handling
+Package errors follows 2 goals:
 
-This package has two goals.
+1. Provide a simple way to enrich an error with some context details, using go13 Wrap/Unwrap mechanism.
+Such types of context are:
+- stacktrace
+- annotation - additional msg
+- error, which is suppressed by newer one
+- any value that can be accessed by corresponding key any time later
 
-1. Provide convenient error type which has error code to easily distinguish errors,
-which can be extended by additional messages(annotations here) while error flows through the program,
-can be printed with stack trace.
+2. Provide a convenient way to handle errors in exception style.
 
-2. Provide convenient way to handle errors in exception style.
+About first point:
 
-With the first point everything is clear, let's talk a little about second.
+Error might look like a context vice versa. It also flows through the function call stack, but, opposite to context,
+it flows upwards. While it flows we want to enrich it with some information relevant to current stack level.
+This package provides several wrapping constructs providing this ability.
+
+One can wrap an existing error with an error with a stacktrace, so that this error will be possible to print
+with it's stacktrace and easily find a place error occured in. Only the most deep stacktrace is saved and printed.
+
+One can add an annotation to an error. Moreover, if error already has a stacktrace, this annotation will be printed
+along with the corresponding line in stacktrace, so it's easy to find in which function this annotations was added.
+
+One can suppress an existing error with newer one. Both errors will be printed.
+
+One can add a value to an error. Later this value can be retrieved with the key used to add this value. If several
+values are added with the same key, only the first one (from the most deep stack level) is saved. It might be
+very useful to pass logger to the function upper in the stack. Look at the example to see this approach.
+
+About second point:
+
 Go's error handling idiom usually looks like
 
     x, err := DoSmth()
@@ -34,144 +54,64 @@ error handling approach, which is quite similar to exception approach.
 This package provides similar to this Handle-Check mechanism, based on panics.
 Details are below =)
 
-Errors
-
-All errors created by this package are returned as golang native error interface.
-Underlying type is immutable, so one can't change smth in already existing error, but
-can use wrap functions, which create new one based on underlying.
-New, Errorf, Codef - creates new error. Wrap, WrapAnnotated - wrap existing.
-
-Error codes
-
-Error can be created with error code, which has interface{} type. Error code can be obtained from error by ErrCode
-function.
-
-    err := errors.New("description", 1)
-    if errors.ErrCode(err) == 1 {
-      fmt.Println("Hooray, it works!")
-    }
-
-Missing error code in creation is equal to nil error code.
-
-    err := errors.New("description")
-    if errors.ErrCode(err) == nil {
-      fmt.Println("Hooray, it works!")
-    }
-
-When one wraps error without providing error code, it is preserved. Otherwise - overridden.
-
-    err := errors.New("description", 1)
-    err = errors.Wrap(err)
-    if errors.ErrCode(err) == 1 {
-      fmt.Println("Hooray, it works!")
-    }
-    err = errors.Wrap(err, 2)
-    if errors.ErrCode(err) == 2 {
-      fmt.Println("Hooray, it still works!")
-    }
-
-Annotations
-
-With WrapAnnotated one can add additional messages to an error. Annotations are printed in stacktrace, bound
-to corresponding function(where it was added).
-If annotation was added out of functions in stacktrace, it will be printed in separate section.
-
-Format
-
-Errors printout consists of 3 parts: ERROR, STACK, SUPPRESSED.
-ERROR part:
-
-Prints underlying error. Uses Format if underlying error implements fmt.Formatter.
-
-STACK part:
-
-Prints stack trace with annotations if modifier is %v.
-
-SUPPRESSED part:
-
-Prints suppressed error if it exists. Uses Format if it implements fmt.Formatter.
-
-E.g. with %v:
+Example of error format, when printed with SprintE:
 
     ERROR:
-    connection failed
+    task can not be marked as done
 
     STACK:
-    github.com/pashaosipyants/errors/example_auxiliary.SaveTaskToDbMockConnectionError
-    	D:/work/go/src/github.com/pashaosipyants/errors/example_auxiliary/example_auxiliary.go:19
-    github.com/pashaosipyants/errors/example_auxiliary.CreateTaskInitedByUser1
-    	D:/work/go/src/github.com/pashaosipyants/errors/example_auxiliary/example_auxiliary.go:63
-    ANNOTATIONS:
-    Inited by user 1
-    github.com/pashaosipyants/errors_test.apiCreateTask
-    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:70
-    github.com/pashaosipyants/errors_test.Example.func1
-    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:41
-    github.com/pashaosipyants/errors_test.Example
-    	D:/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:45
+    github.com/pashaosipyants/errors/v2_test.markTaskAsDone
+    	/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:105
+    github.com/pashaosipyants/errors/v2_test.apiCreateTask.func1
+    	/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:78
+    github.com/pashaosipyants/errors/v2.Handler
+    	/work/go/src/github.com/pashaosipyants/errors/handlecheck.go:55
+    github.com/pashaosipyants/errors/v2_test.apiCreateTask
+    	/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:90
+    github.com/pashaosipyants/errors/v2_test.Example.func1
+    	work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:60
+    github.com/pashaosipyants/errors/v2_test.Example
+    	/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:63
     testing.runExample
-    	C:/Go/src/testing/example.go:121
+    	/Go/src/testing/run_example.go:62
     testing.runExamples
-    	C:/Go/src/testing/example.go:45
+    	/Go/src/testing/example.go:44
     testing.(*M).Run
-    	C:/Go/src/testing/testing.go:1035
+    	/Go/src/testing/testing.go:1200
     main.main
-    	_testmain.go:70
+    	_testmain.go:58
     runtime.main
-    	C:/Go/src/runtime/proc.go:201
+    	/Go/src/runtime/proc.go:203
     runtime.goexit
-    	C:/Go/src/runtime/asm_amd64.s:1333
+    	/Go/src/runtime/asm_amd64.s:1373
 
     SUPPRESSED:
     ERROR:
-    cant create task
+    User: 239; Error: already_exist_but_not_done
 
-Cause
-
-To get underlying error use Cause func.
-
-    err := errors.Wrap(io.EOF)
-    if reflect.DeepEqual(errors.Cause(err), io.EOF) {
-      fmt.Println("Hooray, it works!")
-    }
-
-Skipstack management
-
-All creation & wrapping functions have their duplicates with _skipstack suffix and skip argument.
-With those functions one can specify correct first stack frame to print in stack trace.
-skip==0 means starting from caller of this function.
-It can be useful for example to skip stack frames of wrapper object, if you want your own wrapper of this package.
-
-    type MyErr struct {
-      error
-      X AddInfo
-    }
-
-    func NewMyErr(message string, errcode ...interface{}, x AddInfo) MyErr {
-      return MyErr{New_skipstack(message, 1, errcode...), x}
-    }
-
-
-Handle check mechanism
-
-example:
-
-    defer errors.Handler(func(err errors.handleable) {
-      log.Error(err)
-      switch err.ErrCode() {
-        case 1:
-          repairError1()
-        case 2:
-          repairError2()
-        default:
-          panic("Unknown err code")
-      }
-    })
-
-    err := task1()
-    errors.Check(err, 1)
-
-    x := twoPlusTwo()
-    errors.CheckIfNew(x != 4, "twoPlusTwo is wrong", 2)
+    STACK:
+    github.com/pashaosipyants/errors/v2/example_auxiliary.SaveTaskToDbMockExistButNotDone
+    	/work/go/src/github.com/pashaosipyants/errors/example_auxiliary/example_auxiliary.go:36
+    github.com/pashaosipyants/errors/v2/example_auxiliary.CreateTaskInitedByUser
+    	/work/go/src/github.com/pashaosipyants/errors/example_auxiliary/example_auxiliary.go:78
+    	ANNOTATION: Inited by user 239
+    github.com/pashaosipyants/errors/v2_test.apiCreateTask
+    	/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:89
+    github.com/pashaosipyants/errors/v2_test.Example.func1
+    	/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:60
+    github.com/pashaosipyants/errors/v2_test.Example
+    	/work/go/src/github.com/pashaosipyants/errors/example_compehensive_test.go:63
+    testing.runExample
+    	/Go/src/testing/run_example.go:62
+    testing.runExamples
+    	/Go/src/testing/example.go:44
+    testing.(*M).Run
+    	/Go/src/testing/testing.go:1200
+    main.main
+    	_testmain.go:58
+    runtime.main
+    	/Go/src/runtime/proc.go:203
+    runtime.goexit
+    	/Go/src/runtime/asm_amd64.s:1373
 */
 package errors
